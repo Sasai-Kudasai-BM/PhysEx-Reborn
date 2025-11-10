@@ -1,0 +1,10 @@
+{
+	"required": true,
+	"package": "net.skds.physex.client.mixins",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": ["_fluids.WaterFluidClientMixin"],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"plugin": "net.skds.physex.client.PXClientMixinPlugin", "client": ["_fluids._layer.FluidRendererMixin", "_fluids._layer.RenderSectionRegionFluidMixin", "_fluids._layer.SectionCompilerFluidMixin", "_fluids._layer.SectionCopyFluidMixin"]
+}

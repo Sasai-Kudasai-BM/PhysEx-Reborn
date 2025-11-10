@@ -1,0 +1,49 @@
+{
+	"schemaVersion": 1,
+	"id": "physex",
+	"version": "${version}",
+	"name": "PhysEx (A.K.A WPO + BPO)",
+	"description": "",
+	"authors": [
+		"Sasai_Kudasai_BM"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "MIT",
+	"icon": "assets/physex/icon.png",
+	"environment": "*",
+	"accessWidener": "physex.accesswidener",
+	"entrypoints": {
+		"client": [
+			"net.skds.physex.client.PhysExClient"
+		],
+		"main": [
+			"net.skds.physex.PhysEx"
+		],
+		"server": [
+			"net.skds.physex.server.PhysExServer"
+		]
+	},
+	"mixins": [
+		"physex.common.mixins.json",
+		{
+			"config": "physex.server.mixins.json",
+			"environment": "server"
+		},
+		{
+			"config": "physex.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.17.3",
+		"minecraft": "~1.21.10",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}

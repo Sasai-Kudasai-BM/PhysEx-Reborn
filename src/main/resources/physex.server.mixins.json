@@ -1,0 +1,10 @@
+{
+	"required": true,
+	"package": "net.skds.physex.server.mixins",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"plugin": "net.skds.physex.PXMixinPlugin"
+}

@@ -1,0 +1,5 @@
+accessWidener v2 named
+
+accessible method net/minecraft/world/level/material/FlowingFluid isSolidFace (Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z
+accessible method net/minecraft/world/level/material/FlowingFluid getSlopeFindDistance (Lnet/minecraft/world/level/LevelReader;)I
+accessible class net/minecraft/client/renderer/chunk/SectionCopy

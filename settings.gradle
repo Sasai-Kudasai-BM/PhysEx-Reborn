@@ -1,0 +1,23 @@
+pluginManagement {
+    repositories {
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+rootProject.name = 'PhysEx'
+
+include(
+        ':skdslib',
+)
+
+//rootProject.children.each { project ->
+//    String projectDirName = "modules/$project.name"
+//    project.projectDir = new File(settingsDir, projectDirName)
+//    assert project.projectDir.isDirectory()
+//    assert project.buildFile.isFile()
+//}
