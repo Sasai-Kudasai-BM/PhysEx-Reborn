@@ -4,7 +4,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.client.renderer.chunk.SectionCopy;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
 import net.skds.physex.client.fluids.layer.SectionCopyExtension;
 import net.skds.physex.fluids.layer.FluidLayer;
 import net.skds.physex.fluids.layer.SparseChunkStorage;
@@ -26,7 +25,7 @@ public class SectionCopyFluidMixin implements SectionCopyExtension {
 	private void init(LevelChunk levelChunk, int i, CallbackInfo ci) {
 		FluidLayer fl = FluidLayer.get(levelChunk);
 		if (fl != null) {
-			this.fluids = fl.data().cutSection(i * 16 - levelChunk.getMinY());
+			this.fluids = fl.data().cutSection(i * 16);
 			return;
 		}
 		this.fluids = null;
@@ -35,7 +34,7 @@ public class SectionCopyFluidMixin implements SectionCopyExtension {
 	@Unique
 	@Override
 	public FluidState physEx$getFluidState(int x, int y, int z) {
-		if (fluids == null) return Fluids.EMPTY.defaultFluidState();
-		return fluids.getOrDefault(SparseChunkStorage.getPosIndex(x, y, z), Fluids.EMPTY.defaultFluidState());
+		if (fluids == null) return null;
+		return fluids.get(SparseChunkStorage.getPosIndex(x, y & 0xf, z));
 	}
 }

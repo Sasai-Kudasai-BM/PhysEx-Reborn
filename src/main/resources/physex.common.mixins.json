@@ -2,7 +2,7 @@
 	"required": true,
 	"package": "net.skds.physex.mixins",
 	"compatibilityLevel": "JAVA_21",
-	"mixins": ["_fluids.FlowingFluidMixin", "_fluids.LiquidBlockMixin", "_fluids.PointedDripstoneBlockMixin", "_fluids.ServerWorldFluidsMixin", "_fluids.WorldChunkFluidMixin"],
+	"mixins": ["_fluids.FlowingFluidMixin", "_fluids.LiquidBlockMixin", "_fluids.PointedDripstoneBlockMixin", "_fluids.ServerWorldFluidsMixin", "_fluids._layer.LiquidBlockLayerMixin", "_fluids._layer.NeighborUpdaterFluidMixin", "_fluids._layer.WorldChunkFluidMixin"],
 	"injectors": {
 		"defaultRequire": 1
 	},

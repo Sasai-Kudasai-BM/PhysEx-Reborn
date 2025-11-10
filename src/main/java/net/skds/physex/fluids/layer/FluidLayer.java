@@ -38,6 +38,7 @@ public record FluidLayer(SparseChunkStorage<FluidState> data) {
 	}
 
 	public static void setFluidState(BlockPos pos, ChunkAccess chunk, FluidState fs) {
+		if (fs != null && fs.isEmpty()) fs = null;
 		getOrCreate(chunk).data.set(pos.getX(), pos.getY() - chunk.getMinY(), pos.getZ(), fs);
 	}
 

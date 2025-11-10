@@ -19,7 +19,7 @@ public class SectionCompilerFluidMixin {
 					target = "Lnet/minecraft/world/level/block/state/BlockState;getFluidState()Lnet/minecraft/world/level/material/FluidState;"
 			))
 	FluidState compile(BlockState instance,
-					   @Local(ordinal = 0, name = "blockPos3", type = BlockPos.class) BlockPos blockPos,
+					   @Local(name = "blockPos3", type = BlockPos.class) BlockPos blockPos,
 					   @Local(argsOnly = true, ordinal = 0, type = RenderSectionRegion.class) RenderSectionRegion renderSectionRegion
 	) {
 		return renderSectionRegion.getFluidState(blockPos);

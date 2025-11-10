@@ -94,6 +94,7 @@ public class CustomFluidTicks extends LevelTicks<Fluid> {
 			for (ChunkAccess ca : updatedFluidOverrides) {
 				FluidLayer.update(ca);
 			}
+			updatedFluidOverrides.clear();
 		}
 		profiler.pop();
 		//equalizationSet.clear();

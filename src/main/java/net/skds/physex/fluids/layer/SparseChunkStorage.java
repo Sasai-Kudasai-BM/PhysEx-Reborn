@@ -56,14 +56,7 @@ public class SparseChunkStorage<T> {
 		}
 		//for (int i = 0; i < dictionary.length; i++) {
 		//	if (stateCount[i] == 0) {
-		//		T remove = this.states[i];
-		//		this.states[i] = null;
-		//		this.slots.clear(i);
-		//		int value = this.dictionary.removeInt(remove);
-		//		var itr = this.data.values().intIterator();
-		//		while (itr.hasNext()) {
-		//			if (itr.nextInt() == value + 1) itr.remove();
-		//		}
+		//		removeIndex(i);
 		//	}
 		//}
 	}
@@ -133,7 +126,7 @@ public class SparseChunkStorage<T> {
 		long[] data = new long[this.data.size()];
 		int i = 0;
 		for (var e : this.data.int2IntEntrySet()) {
-			data[i] = ((long) e.getIntKey() << 32) | (e.getIntValue() - 1);
+			data[i++] = ((long) e.getIntKey() << 32) | (e.getIntValue() - 1);
 		}
 
 		return new Data<>(data, Arrays.copyOf(this.states, slots.length()));
@@ -159,10 +152,9 @@ public class SparseChunkStorage<T> {
 	}
 
 	public record Data<T>(long[] data, T[] dictionary) {
-
 	}
 
 	public static int getPosIndex(int x, int y, int z) {
-		return ((y & 0xff) << 4 | (x & 0xff)) << 4 | (z & 0xff);
+		return (y << 4 | (x & 0xf)) << 4 | (z & 0xf);
 	}
 }

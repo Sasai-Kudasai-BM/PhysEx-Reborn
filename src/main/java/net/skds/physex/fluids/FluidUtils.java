@@ -10,6 +10,7 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.chunk.ChunkAccess;
@@ -181,12 +182,10 @@ public class FluidUtils {
 		return isPathBlocked(fromState, fromShape, toState, toShape, dir);
 	}
 
-	@SuppressWarnings("deprecation")
 	public static boolean isPathBlocked(BlockState fromState, VoxelShape fromShape, BlockState toState, VoxelShape toShape, Direction dir) {
 		// FlowingFluid.canPassThroughWall
-		return fromState.blocksMotion()
-				|| (toState != null && (toState.blocksMotion()))
-				|| (!fromShape.isEmpty() && !toShape.isEmpty() && Shapes.mergedFaceOccludes(fromShape, toShape, dir));
+		if (fromShape.isEmpty() && toShape.isEmpty()) return false;
+		return Shapes.mergedFaceOccludes(fromShape, toShape, dir);
 	}
 
 	public static boolean isFalling(FluidState fs) {
@@ -223,18 +222,18 @@ public class FluidUtils {
 	}
 
 	public static boolean isFluidStateOverrided(BlockState blockState) {
-		return FLUID_CHUNK_LAYER && blockState.hasProperty(BlockStateProperties.WATERLOGGED);
+		return FLUID_CHUNK_LAYER && !(blockState.getBlock() instanceof LiquidBlock); //blockState.hasProperty(BlockStateProperties.WATERLOGGED);
 	}
 
 	public static BlockState applyFluidToBlock(BlockState oldState, FluidState fluidState) {
 		if (oldState.isAir() || isLiquid(oldState)) return fluidState.createLegacyBlock();
 		if (fluidState.isEmpty()) {
 			if (oldState.getFluidState().isEmpty()) return oldState;
-			if (oldState.hasProperty(BlockStateProperties.WATERLOGGED)) {
+			if (fluidState.getType().isSame(Fluids.WATER) && oldState.hasProperty(BlockStateProperties.WATERLOGGED)) {
 				return oldState.setValue(BlockStateProperties.WATERLOGGED, false);
 			}
 		}
-		if (oldState.hasProperty(BlockStateProperties.WATERLOGGED)) {
+		if (fluidState.getType().isSame(Fluids.WATER) && oldState.hasProperty(BlockStateProperties.WATERLOGGED)) {
 			int amount = fluidState.getAmount();
 			boolean fill = switch (WATERLOG_POLICY) {
 				case ALL_OR_NOTHING -> amount == MAX_LEVEL;
@@ -253,19 +252,23 @@ public class FluidUtils {
 	public static void setFluid(LevelAccessor world, BlockPos to, BlockState toState, FluidState toFs, FlowingFluid fluid, int amount, boolean falling) {
 		FluidState fs = getFluidState(fluid, amount, falling);
 		if (fs == toFs) return;
+		int flags = Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS
+				| Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE
+				| Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
+
 		if (FLUID_CHUNK_LAYER) {
 			if (isFluidStateOverrided(toState)) {
+				//flags &= ~Block.UPDATE_CLIENTS;
 				ChunkAccess ca = world.getChunk(to);
 				FluidLayer.setFluidState(to, ca, fs);
+				Fluid f = fs.getType();
+				world.scheduleTick(to, f, f.getTickDelay(world));
 				((CustomFluidTicks) world.getFluidTicks()).fluidLayerUpdate(ca);
 			}
 		}
 		BlockState bs = applyFluidToBlock(toState, fs);
 		if (bs != toState) {
-			world.setBlock(to, bs,
-					3 | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS,
-					1
-			);
+			world.setBlock(to, bs, flags, 1);
 		}
 	}
 }

@@ -6,5 +6,5 @@
 	"injectors": {
 		"defaultRequire": 1
 	},
-	"plugin": "net.skds.physex.client.PXClientMixinPlugin", "client": ["_fluids._layer.FluidRendererMixin", "_fluids._layer.RenderSectionRegionFluidMixin", "_fluids._layer.SectionCompilerFluidMixin", "_fluids._layer.SectionCopyFluidMixin"]
+	"plugin": "net.skds.physex.client.PXClientMixinPlugin", "client": ["_fluids.FluidRendererMixin", "_fluids._layer.FluidRendererLayerMixin", "_fluids._layer.RenderSectionRegionFluidMixin", "_fluids._layer.SectionCompilerFluidMixin", "_fluids._layer.SectionCopyFluidMixin"]
 }

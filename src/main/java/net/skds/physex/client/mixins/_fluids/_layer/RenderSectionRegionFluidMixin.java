@@ -22,13 +22,18 @@ public abstract class RenderSectionRegionFluidMixin {
 		int x = blockPos.getX();
 		int y = blockPos.getY();
 		int z = blockPos.getZ();
-		return ((SectionCopyExtension) this.getSection(
+
+		SectionCopy sc = this.getSection(
 				SectionPos.blockToSectionCoord(x),
 				SectionPos.blockToSectionCoord(y),
 				SectionPos.blockToSectionCoord(z)
-		)).physEx$getFluidState(x, y, z);
+		);
+		FluidState fs = ((SectionCopyExtension) sc).physEx$getFluidState(x, y, z);
+		return fs == null ?
+				sc.getBlockState(blockPos).getFluidState()
+				: fs;
 	}
 
 	@Shadow
-	abstract SectionCopy getSection(int i, int j, int k);
+	protected abstract SectionCopy getSection(int i, int j, int k);
 }
