@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.skds.lib2.mat.vec2.Vec2F;
 import net.skds.physex.PhysEx;
@@ -165,9 +166,9 @@ public class ClassicFlowTask extends AbstractFluidTask {
 			if (!toState.canBeReplaced(fluid)) {
 				return 0;
 			}
-			//if (FluidUtils.isPathBlocked(fromState, fromShape, null, Shapes.empty(), dir)) {
-			//	return 0;
-			//}
+			if (FluidUtils.isPathBlocked(fromState, fromShape, null, Shapes.empty(), dir)) {
+				return 0;
+			}
 		}
 		//if (fromState.hasProperty(BlockStateProperties.WATERLOGGED)) return 0;
 		//if (toState.hasProperty(BlockStateProperties.WATERLOGGED)) return 0;

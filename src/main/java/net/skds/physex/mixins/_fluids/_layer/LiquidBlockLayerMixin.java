@@ -8,8 +8,11 @@ import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FlowingFluid;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
+import org.spongepowered.asm.mixin.Shadow;
 
 @Mixin(LiquidBlock.class)
 public abstract class LiquidBlockLayerMixin extends Block {
@@ -17,6 +20,10 @@ public abstract class LiquidBlockLayerMixin extends Block {
 	public LiquidBlockLayerMixin(Properties properties) {
 		super(properties);
 	}
+
+	@Final
+	@Shadow
+	protected FlowingFluid fluid;
 
 	/**
 	 * @author Sasai_kudasai_BM
@@ -33,6 +40,7 @@ public abstract class LiquidBlockLayerMixin extends Block {
 			BlockState blockState2,
 			RandomSource randomSource
 	) {
+		scheduledTickAccess.scheduleTick(blockPos, this.fluid, this.fluid.getTickDelay(levelReader));
 		return super.updateShape(blockState, levelReader, scheduledTickAccess, blockPos, direction, blockPos2, blockState2, randomSource);
 	}
 

@@ -46,6 +46,10 @@ public class FluidUtils {
 			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "fluid_solid")
 	);
 
+	public static final TagKey<Block> FLAMMABLE_TAG = TagKey.create(Registries.BLOCK,
+			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "flammable")
+	);
+
 	public static final int BURN_TEMP = 500 + 273;
 	public static final int MAX_LEVEL = 8;
 	public static final int FLUID_IN_LEVEL = (int) FluidConstants.BLOCK / MAX_LEVEL;
@@ -248,6 +252,7 @@ public class FluidUtils {
 	}
 
 	public static boolean isFlammable(BlockState blockState) {
+		if (blockState.ignitedByLava() || blockState.is(FLAMMABLE_TAG)) return true;
 		FireBlock fireBlock = (FireBlock) Blocks.FIRE;
 		return fireBlock.burnOdds.containsKey(blockState.getBlock());
 	}
@@ -294,8 +299,7 @@ public class FluidUtils {
 		FluidState fs = getFluidState(fluid, amount, falling);
 		if (fs == toFs) return;
 		int flags = Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS
-				| Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE
-				| Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
+				| Block.UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
 
 		boolean override = isFluidStateOverrided(toState) && canHandleFluid(toState, fluid);
 		if (override) {
@@ -325,7 +329,7 @@ public class FluidUtils {
 				if (destroy && !override && !toState.isAir()) {
 					fluid.beforeDestroyingBlock(world, to, toState);
 				}
-				flags &= ~(Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE);
+				flags &= ~Block.UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE;
 			}
 			if (!placed) {
 				world.setBlock(to, bs, flags, 16);

@@ -2,6 +2,7 @@ package net.skds.physex.mixins._fluids._layer;
 
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.resources.ResourceKey;
@@ -10,6 +11,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.storage.WritableLevelData;
 import org.spongepowered.asm.mixin.Mixin;
@@ -35,5 +37,15 @@ public abstract class ServerWorldFluidsLayerMixin extends Level {
 
 	) {
 		return chunk.getFluidState(pos.getX() + x, pos.getY() + y, pos.getZ() + z);
+	}
+
+	@Override
+	public void neighborShapeChanged(Direction direction, BlockPos blockPos, BlockPos blockPos2, BlockState blockState, int i, int j) {
+		super.neighborShapeChanged(direction, blockPos, blockPos2, blockState, i, j);
+		FluidState fs = getFluidState(blockPos);
+		if (!fs.isEmpty()) {
+			Fluid f = fs.getType();
+			scheduleTick(blockPos, f, f.getTickDelay(this));
+		}
 	}
 }
