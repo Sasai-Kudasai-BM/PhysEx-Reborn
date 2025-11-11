@@ -1,26 +1,25 @@
 package net.skds.physex.client.fluids;
 
 import lombok.experimental.UtilityClass;
-import net.minecraft.client.renderer.block.LiquidBlockRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockAndTintGetter;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
 
 @UtilityClass
 public class ClientFluidUtils {
 
+	private static final float NEAR_ZERO = 0.004f;
+
 	@SuppressWarnings("deprecation")
-	public static float calculateAverageHeight(LiquidBlockRenderer instance,
-											   BlockAndTintGetter world,
+	public static float calculateAverageHeight(BlockAndTintGetter world,
 											   Fluid fluid,
 											   float self,
 											   float h1, float h2,
 											   BlockPos offsetPos,
-											   BlockPos startPos,
-											   BlockState blockState,
-											   FluidState fluidState
+											   BlockPos startPos
+											   //BlockState blockState,
+											   //FluidState fluidState
 	) {
 		if (!(h2 >= 1.0F) && !(h1 >= 1.0F)) {
 			float[] mid = new float[2];
@@ -35,7 +34,7 @@ public class ClientFluidUtils {
 					BlockPos pd = offsetPos.below();
 					FluidState fsD = world.getFluidState(pd);
 					if (fluid.isSame(fsD.getType()) && !world.getBlockState(offsetPos).isSolid()) {
-						return 0f;
+						return NEAR_ZERO;
 					} else i = !world.getBlockState(offsetPos).isSolid() ? 0.0F : -1.0F;
 				}
 				// =========================
@@ -45,32 +44,25 @@ public class ClientFluidUtils {
 				addWeightedHeight(mid, i);
 			}
 			if (h2 <= 0.0F || h1 <= 0.0F) {
-				//BlockPos posD = startPos.below();
-				//FluidState fsD = world.getFluidState(posD);
-				//if (fsD.getType().isSame(fluid)) {
 				BlockPos p2 = new BlockPos(offsetPos.getX(), offsetPos.getY(), startPos.getZ());
 				BlockPos p2d = p2.below();
 				FluidState fsD2 = world.getFluidState(p2d);
 				if (h2 <= 0 && fsD2.getType().isSame(fluid) && !world.getBlockState(p2).isSolid()) {
-					return 0f;
-					//mid[1]++;
-					//addWeightedHeight(mid, fsD2.getOwnHeight());
+					return NEAR_ZERO;
 				}
 				BlockPos p3 = new BlockPos(startPos.getX(), offsetPos.getY(), offsetPos.getZ());
 				BlockPos p3d = p3.below();
 				FluidState fsD3 = world.getFluidState(p3d);
 				if (h1 <= 0 && fsD3.getType().isSame(fluid) && !world.getBlockState(p3).isSolid()) {
-					return 0f;
-					//mid[1]++;
-					//addWeightedHeight(mid, fsD3.getOwnHeight());
+					return NEAR_ZERO;
 				}
-				//}
 			}
 
 			addWeightedHeight(mid, self);
 			addWeightedHeight(mid, h2);
 			addWeightedHeight(mid, h1);
-			return mid[0] / mid[1];
+			float height = mid[0] / mid[1];
+			return Math.max(height, NEAR_ZERO);
 		} else {
 			return 1.0F;
 		}

@@ -37,15 +37,15 @@ public record FluidLayer(SparseChunkStorage<FluidState> data) {
 		return layer.data.get(pos.getX(), pos.getY() - chunk.getMinY(), pos.getZ());
 	}
 
-	public static void setFluidState(BlockPos pos, ChunkAccess chunk, FluidState fs) {
+	public static boolean setFluidState(BlockPos pos, ChunkAccess chunk, FluidState fs) {
 		if (fs != null && fs.isEmpty()) fs = null;
-		getOrCreate(chunk).data.set(pos.getX(), pos.getY() - chunk.getMinY(), pos.getZ(), fs);
+		return getOrCreate(chunk).data.set(pos.getX(), pos.getY() - chunk.getMinY(), pos.getZ(), fs);
 	}
 
-	public static void resetFluidState(BlockPos pos, ChunkAccess chunk) {
+	public static boolean resetFluidState(BlockPos pos, ChunkAccess chunk) {
 		FluidLayer layer = get(chunk);
-		if (layer == null) return;
-		layer.data.set(pos.getX(), pos.getY() - chunk.getMinY(), pos.getZ(), null);
+		if (layer == null) return false;
+		return layer.data.set(pos.getX(), pos.getY() - chunk.getMinY(), pos.getZ(), null);
 	}
 
 	public static FluidLayer get(ChunkAccess chunk) {

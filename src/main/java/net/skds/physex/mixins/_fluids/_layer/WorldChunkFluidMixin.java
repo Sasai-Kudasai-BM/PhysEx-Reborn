@@ -6,6 +6,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.material.FluidState;
+import net.skds.physex.fluids.CustomFluidTicks;
 import net.skds.physex.fluids.FluidUtils;
 import net.skds.physex.fluids.layer.FluidLayer;
 import org.spongepowered.asm.mixin.Final;
@@ -33,7 +34,10 @@ public class WorldChunkFluidMixin {
 					   @Local(name = "blockState2", type = BlockState.class) BlockState oldState
 	) {
 		if (!level.isClientSide() && !FluidUtils.isFluidStateOverrided(blockState)) {
-			FluidLayer.resetFluidState(blockPos, (LevelChunk) (Object) this);
+			LevelChunk _this = (LevelChunk) (Object) this;
+			if (FluidLayer.resetFluidState(blockPos, _this)) {
+				CustomFluidTicks.get(level).fluidLayerUpdate(_this, blockPos);
+			}
 		}
 	}
 

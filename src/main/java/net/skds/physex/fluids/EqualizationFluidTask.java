@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.material.FlowingFluid;
+import net.skds.lib2.mat.FastMath;
 import net.skds.lib2.utils.ArrayUtils;
 
 import java.util.Arrays;
@@ -15,7 +16,7 @@ import java.util.HashSet;
 public class EqualizationFluidTask extends AbstractFluidTask {
 
 	@SuppressWarnings("unchecked")
-	private static final Object2IntMap.Entry<BlockPos>[] DUMMY_ARRAY = (Object2IntMap.Entry<BlockPos>[]) new Object2IntMap.Entry[0];
+	//private static final Object2IntMap.Entry<BlockPos>[] DUMMY_ARRAY = (Object2IntMap.Entry<BlockPos>[]) new Object2IntMap.Entry[0];
 	private static final Comparator<Object2IntMap.Entry<BlockPos>> COMP =
 			(e1, e2) -> Integer.compare(e2.getIntValue(), e1.getIntValue());
 
@@ -41,6 +42,8 @@ public class EqualizationFluidTask extends AbstractFluidTask {
 
 		int y = pos.getY();
 
+		int steps = FastMath.clamp(FluidUtils.getSlopeDistance(fluid, world) * 4, 2, 20);
+
 		Object2IntOpenHashMap<BlockPos> fluids = new Object2IntOpenHashMap<>();
 		HashSet<BlockPos> newPoses = new HashSet<>();
 		HashSet<BlockPos> nextNewPoses = new HashSet<>();
@@ -48,7 +51,7 @@ public class EqualizationFluidTask extends AbstractFluidTask {
 		fluids.put(pos, amount);
 
 		l1:
-		for (int i = 0; i < 16; i++) {
+		for (int i = 0; i < steps; i++) {
 			for (BlockPos p : newPoses) {
 				int py = p.getY();
 				boolean walls = false;
@@ -107,7 +110,7 @@ public class EqualizationFluidTask extends AbstractFluidTask {
 					}
 				}
 				int nPlus = n + nl;
-				if (nPlus > 64 && amount % nPlus == 0)
+				if (nPlus > steps * 4 && amount % nPlus == 0)
 					break l1;
 				//if ((max - min > 1) && py == y)
 				//	break l1;

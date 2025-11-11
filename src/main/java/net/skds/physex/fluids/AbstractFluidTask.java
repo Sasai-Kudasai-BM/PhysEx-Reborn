@@ -6,7 +6,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 
@@ -26,7 +25,7 @@ public abstract class AbstractFluidTask implements Runnable {
 		this.fluid = fluid;
 		this.world = world;
 		this.randDirs = FluidUtils.randomHorizontal();
-		this.fluidTicks = (CustomFluidTicks) world.getFluidTicks();
+		this.fluidTicks = CustomFluidTicks.get(world);
 	}
 
 
@@ -63,9 +62,9 @@ public abstract class AbstractFluidTask implements Runnable {
 			if (!toState.canBeReplaced(fluid)) {
 				return false;
 			}
-			if (FluidUtils.isPathBlocked(fromState, fromShape, null, Shapes.empty(), dir)) {
-				return false;
-			}
+			//if (FluidUtils.isPathBlocked(fromState, fromShape, null, Shapes.empty(), dir)) {
+			//	return false;
+			//}
 		}
 		//if (fromState.hasProperty(BlockStateProperties.WATERLOGGED)) return false;
 		//if (toState.hasProperty(BlockStateProperties.WATERLOGGED)) return false;
@@ -105,9 +104,9 @@ public abstract class AbstractFluidTask implements Runnable {
 			if (!toState.canBeReplaced(fluid)) {
 				return false;
 			}
-			if (FluidUtils.isPathBlocked(fromState, fromShape, null, Shapes.empty(), Direction.UP)) {
-				return false;
-			}
+			//if (FluidUtils.isPathBlocked(fromState, fromShape, null, Shapes.empty(), Direction.UP)) {
+			//	return false;
+			//}
 		}
 		FluidState toFs = getFluidState(to);
 		return isThis(toFs);

@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
@@ -33,11 +34,15 @@ public class CustomFluidTicks extends LevelTicks<Fluid> {
 		this.world = world;
 	}
 
+	public static CustomFluidTicks get(LevelAccessor world) {
+		return (CustomFluidTicks) world.getFluidTicks();
+	}
+
 	public int getTaskLimit() {
 		return world.getGameRules().getInt(PhysExGameRules.TASK_LIMIT);
 	}
 
-	public void fluidLayerUpdate(ChunkAccess chunk) {
+	public void fluidLayerUpdate(ChunkAccess chunk, BlockPos pos) {
 		updatedFluidOverrides.add(chunk);
 	}
 

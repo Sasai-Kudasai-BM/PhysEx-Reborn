@@ -2,15 +2,23 @@ package net.skds.physex.fluids;
 
 import lombok.experimental.UtilityClass;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.FireBlock;
+import net.minecraft.world.level.block.LiquidBlockContainer;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.chunk.ChunkAccess;
@@ -24,12 +32,21 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.skds.lib2.mat.FastMath;
 import net.skds.lib2.mat.vec2.Vec2F;
 import net.skds.lib2.utils.ArrayUtils;
+import net.skds.physex.PhysEx;
 import net.skds.physex.PhysExBootConfig;
 import net.skds.physex.fluids.layer.FluidLayer;
 
 @UtilityClass
 public class FluidUtils {
 
+	public static final TagKey<Block> FLUID_NOT_FRIENDLY_TAG = TagKey.create(Registries.BLOCK,
+			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "fluid_not_friendly")
+	);
+	public static final TagKey<Block> FLUID_SOLID_TAG = TagKey.create(Registries.BLOCK,
+			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "fluid_solid")
+	);
+
+	public static final int BURN_TEMP = 500 + 273;
 	public static final int MAX_LEVEL = 8;
 	public static final int FLUID_IN_LEVEL = (int) FluidConstants.BLOCK / MAX_LEVEL;
 	public static final int LEVELS_IN_BOTTLE = FastMath.ceil((float) FluidConstants.BOTTLE / FLUID_IN_LEVEL);
@@ -98,11 +115,11 @@ public class FluidUtils {
 	}
 
 	public static void waterEvaporationLava(LevelAccessor world, BlockPos pos) {
-		for (Direction direction : WATER_LAVA_DIR) {
+		if (world instanceof ServerLevel sl) for (Direction direction : WATER_LAVA_DIR) {
 			BlockPos pos2 = pos.relative(direction);
 			FluidState fs = world.getFluidState(pos2);
 			if (fs.is(FluidTags.WATER)) {
-				setFluid(world, pos2, (FlowingFluid) fs.getType(), fs.getAmount() - 1, false);
+				setFluid(sl, pos2, (FlowingFluid) fs.getType(), fs.getAmount() - 1, false);
 			}
 		}
 	}
@@ -184,7 +201,12 @@ public class FluidUtils {
 
 	public static boolean isPathBlocked(BlockState fromState, VoxelShape fromShape, BlockState toState, VoxelShape toShape, Direction dir) {
 		// FlowingFluid.canPassThroughWall
+		if (fromState.is(FLUID_SOLID_TAG) || (toState != null && toState.is(FLUID_SOLID_TAG))) return true;
 		if (fromShape.isEmpty() && toShape.isEmpty()) return false;
+		if (fromShape == Shapes.block() && fromState.hasProperty(BlockStateProperties.WATERLOGGED))
+			fromShape = Shapes.empty();
+		if (toState != null && toShape == Shapes.block() && toState.hasProperty(BlockStateProperties.WATERLOGGED))
+			toShape = Shapes.empty();
 		return Shapes.mergedFaceOccludes(fromShape, toShape, dir);
 	}
 
@@ -222,10 +244,26 @@ public class FluidUtils {
 	}
 
 	public static boolean isFluidStateOverrided(BlockState blockState) {
-		return FLUID_CHUNK_LAYER && !(blockState.getBlock() instanceof LiquidBlock); //blockState.hasProperty(BlockStateProperties.WATERLOGGED);
+		return FLUID_CHUNK_LAYER && !isLiquid(blockState);
 	}
 
-	public static BlockState applyFluidToBlock(BlockState oldState, FluidState fluidState) {
+	public static boolean isFlammable(BlockState blockState) {
+		FireBlock fireBlock = (FireBlock) Blocks.FIRE;
+		return fireBlock.burnOdds.containsKey(blockState.getBlock());
+	}
+
+	public static boolean canHandleFluid(BlockState blockState, FlowingFluid fluid) {
+		if (fluid == Fluids.EMPTY) return true;
+		if (blockState.is(FLUID_NOT_FRIENDLY_TAG)) return false;
+		if (isFlammable(blockState)) {
+			int temp = FluidVariantAttributes.getTemperature(FluidVariant.of(fluid.getSource()));
+			return temp < BURN_TEMP;
+		}
+		//if (blockState.is(FLUID_FRIENDLY_TAG)) return true;
+		return true;
+	}
+
+	public static BlockState applyFluidToBlock(BlockState oldState, FluidState fluidState, boolean override) {
 		if (oldState.isAir() || isLiquid(oldState)) return fluidState.createLegacyBlock();
 		if (fluidState.isEmpty()) {
 			if (oldState.getFluidState().isEmpty()) return oldState;
@@ -242,33 +280,58 @@ public class FluidUtils {
 			};
 			return oldState.setValue(BlockStateProperties.WATERLOGGED, fill);
 		}
+		if (override) {
+			return oldState;
+		}
 		return fluidState.createLegacyBlock();
 	}
 
-	public static void setFluid(LevelAccessor world, BlockPos to, FlowingFluid fluid, int amount, boolean falling) {
+	public static void setFluid(Level world, BlockPos to, FlowingFluid fluid, int amount, boolean falling) {
 		setFluid(world, to, world.getBlockState(to), world.getFluidState(to), fluid, amount, falling);
 	}
 
-	public static void setFluid(LevelAccessor world, BlockPos to, BlockState toState, FluidState toFs, FlowingFluid fluid, int amount, boolean falling) {
+	public static void setFluid(Level world, BlockPos to, BlockState toState, FluidState toFs, FlowingFluid fluid, int amount, boolean falling) {
 		FluidState fs = getFluidState(fluid, amount, falling);
 		if (fs == toFs) return;
 		int flags = Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS
 				| Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE
 				| Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
 
-		if (FLUID_CHUNK_LAYER) {
-			if (isFluidStateOverrided(toState)) {
-				//flags &= ~Block.UPDATE_CLIENTS;
-				ChunkAccess ca = world.getChunk(to);
-				FluidLayer.setFluidState(to, ca, fs);
-				Fluid f = fs.getType();
-				world.scheduleTick(to, f, f.getTickDelay(world));
-				((CustomFluidTicks) world.getFluidTicks()).fluidLayerUpdate(ca);
-			}
+		boolean override = isFluidStateOverrided(toState) && canHandleFluid(toState, fluid);
+		if (override) {
+			//flags &= ~Block.UPDATE_CLIENTS;
+			ChunkAccess ca = world.getChunk(to);
+			FluidLayer.setFluidState(to, ca, fs);
+			world.scheduleTick(to, fluid, fluid.getTickDelay(world));
+			CustomFluidTicks.get(world).fluidLayerUpdate(ca, to);
 		}
-		BlockState bs = applyFluidToBlock(toState, fs);
-		if (bs != toState) {
-			world.setBlock(to, bs, flags, 1);
+
+		BlockState bs = applyFluidToBlock(toState, fs, override);
+		if (bs != toState || override) {
+			boolean placed = false;
+			if (override || ((bs.isAir() || isLiquid(bs)) && !toState.isAir() && !isLiquid(toState))) {
+				boolean destroy = true;
+				if (toState.getBlock() instanceof LiquidBlockContainer liquidBlockContainer) {
+					placed = liquidBlockContainer.placeLiquid(world, to, toState, fs.isEmpty() ? fs : fluid.getSource().defaultFluidState());
+					if (placed) {
+						BlockState vanillaBs = world.getBlockState(to);
+						if (vanillaBs.getFluidState() != fs) {
+							bs = applyFluidToBlock(vanillaBs, fs, override);
+							placed = false;
+						}
+						destroy = false;
+					}
+				}
+				if (destroy && !override && !toState.isAir()) {
+					fluid.beforeDestroyingBlock(world, to, toState);
+				}
+				flags &= ~(Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE);
+			}
+			if (!placed) {
+				world.setBlock(to, bs, flags, 16);
+			} else if (override) {
+				world.sendBlockUpdated(to, Blocks.AIR.defaultBlockState(), bs, flags);
+			}
 		}
 	}
 }

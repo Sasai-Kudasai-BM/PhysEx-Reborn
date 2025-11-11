@@ -74,7 +74,7 @@ public class SparseChunkStorage<T> {
 		return null;
 	}
 
-	public void set(int x, int y, int z, T state) {
+	public boolean set(int x, int y, int z, T state) {
 		int pos = getPosIndex(x, y, z);
 
 		if (state != null) {
@@ -91,6 +91,7 @@ public class SparseChunkStorage<T> {
 			} else {
 				stateCount[index]++;
 			}
+			return prev != index;
 		} else {
 			int prev = data.remove(pos) - 1;
 			if (prev >= 0) {
@@ -98,7 +99,9 @@ public class SparseChunkStorage<T> {
 				if (c == 0) {
 					removeIndex(prev);
 				}
+				return true;
 			}
+			return false;
 		}
 	}
 

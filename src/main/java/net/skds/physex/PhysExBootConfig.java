@@ -4,7 +4,6 @@ import lombok.Getter;
 import net.skds.lib2.io.codec.SosisonUtils;
 import net.skds.lib2.io.codec.UniversalSerializer;
 import net.skds.lib2.io.json.annotation.JsonComment;
-import net.skds.lib2.io.json.annotation.JsonDocComment;
 import net.w3e.lib.utils.FileUtils;
 
 import java.nio.file.Files;
@@ -19,25 +18,27 @@ public final class PhysExBootConfig {
 	public static final PhysExBootConfig INSTANCE = load();
 
 	@JsonComment("""
-			 +------------------------------------------+
-			 | Not-reloadable config with major tweaks  |
-			 | restart is required for changes to apply |
-			 +------------------------------------------+
 			
-			Enables the fluids part
+			\t+------------------------------------------+
+			\t| Not-reloadable config with major tweaks  |
+			\t| restart is required for changes to apply |
+			\t+------------------------------------------+
+			
+			// Enables the fluids part
 			""")
 	private boolean fluidPhysicsEnabled = true;
 
 	@JsonComment("Enables the blocks part")
 	private boolean blockPhysicsEnabled = true;
 
-	@JsonComment("Adds new logic layer for fluids to chunks (may be unstable)")
+	@JsonComment("Adds new logic layer for fluids to chunks (may cause stability issues)")
 	private boolean extraFluidLayerEnabled = true;
 
 	@JsonComment("""
+			
 			Describes behaviour of "waterlogged" blocks (slabs, fences, trapdoors etc...)
 			values:
-				ALL_OR_NOTHING (default) - Waterlogged state sets only for full filled blocks
+				ALL_OR_NOTHING (default) - Waterlogged state sets only for fully filled blocks
 				FILL_AT_HALF - Waterlogged state sets only for at least half filled blocks
 				FILL_ALWAYS - Waterlogged state sets if any amount of water presents in block
 			""")
@@ -60,7 +61,6 @@ public final class PhysExBootConfig {
 		private static final ServerOnlyPolicy DEFAULT = new ServerOnlyPolicy();
 	}
 
-	@JsonDocComment
 	public enum WaterlogPolicy {
 		ALL_OR_NOTHING,
 		FILL_AT_HALF,

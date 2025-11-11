@@ -3,3 +3,5 @@ accessWidener v2 named
 accessible method net/minecraft/world/level/material/FlowingFluid isSolidFace (Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z
 accessible method net/minecraft/world/level/material/FlowingFluid getSlopeFindDistance (Lnet/minecraft/world/level/LevelReader;)I
 accessible class net/minecraft/client/renderer/chunk/SectionCopy
+accessible method net/minecraft/world/level/material/FlowingFluid beforeDestroyingBlock (Lnet/minecraft/world/level/LevelAccessor;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)V
+accessible field net/minecraft/world/level/block/FireBlock burnOdds Lit/unimi/dsi/fastutil/objects/Object2IntMap;

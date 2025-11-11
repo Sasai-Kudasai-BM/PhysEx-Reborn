@@ -4,9 +4,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.renderer.block.LiquidBlockRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockAndTintGetter;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.level.material.FluidState;
 import net.skds.physex.client.fluids.ClientFluidUtils;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -51,11 +49,11 @@ public class FluidRendererMixin {
 								 float self,
 								 float g, float h,
 								 BlockPos offsetPos,
-								 @Local(argsOnly = true, type = BlockPos.class) BlockPos startPos,
-								 @Local(argsOnly = true, type = BlockState.class) BlockState blockState,
-								 @Local(argsOnly = true, type = FluidState.class) FluidState fluidState
+								 @Local(argsOnly = true, type = BlockPos.class) BlockPos startPos
+								 //@Local(argsOnly = true, type = BlockState.class) BlockState blockState,
+								 //@Local(argsOnly = true, type = FluidState.class) FluidState fluidState
 	) {
-		return ClientFluidUtils.calculateAverageHeight(instance, world, fluid, self, g, h, offsetPos, startPos, blockState, fluidState);
+		return ClientFluidUtils.calculateAverageHeight(world, fluid, self, g, h, offsetPos, startPos);//, blockState, fluidState);
 	}
 
 }
