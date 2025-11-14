@@ -1,4 +1,4 @@
-package net.skds.physex.mixins._fluids;
+package net.skds.physex.mixins._fluids.tweaks;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;

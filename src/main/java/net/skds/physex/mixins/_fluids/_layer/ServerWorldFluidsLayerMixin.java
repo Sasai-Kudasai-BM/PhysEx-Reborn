@@ -8,6 +8,7 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.dimension.DimensionType;
@@ -42,6 +43,7 @@ public abstract class ServerWorldFluidsLayerMixin extends Level {
 	@Override
 	public void neighborShapeChanged(Direction direction, BlockPos blockPos, BlockPos blockPos2, BlockState blockState, int i, int j) {
 		super.neighborShapeChanged(direction, blockPos, blockPos2, blockState, i, j);
+		if ((i & Block.UPDATE_KNOWN_SHAPE) != 0) return;
 		FluidState fs = getFluidState(blockPos);
 		if (!fs.isEmpty()) {
 			Fluid f = fs.getType();

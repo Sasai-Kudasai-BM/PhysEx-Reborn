@@ -2,6 +2,7 @@ package net.skds.physex.fluids;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashBigSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -11,11 +12,9 @@ import net.skds.lib2.utils.ArrayUtils;
 
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashSet;
 
 public class EqualizationFluidTask extends AbstractFluidTask {
 
-	@SuppressWarnings("unchecked")
 	//private static final Object2IntMap.Entry<BlockPos>[] DUMMY_ARRAY = (Object2IntMap.Entry<BlockPos>[]) new Object2IntMap.Entry[0];
 	private static final Comparator<Object2IntMap.Entry<BlockPos>> COMP =
 			(e1, e2) -> Integer.compare(e2.getIntValue(), e1.getIntValue());
@@ -44,9 +43,9 @@ public class EqualizationFluidTask extends AbstractFluidTask {
 
 		int steps = FastMath.clamp(FluidUtils.getSlopeDistance(fluid, world) * 4, 2, 20);
 
-		Object2IntOpenHashMap<BlockPos> fluids = new Object2IntOpenHashMap<>();
-		HashSet<BlockPos> newPoses = new HashSet<>();
-		HashSet<BlockPos> nextNewPoses = new HashSet<>();
+		Object2IntOpenHashMap<BlockPos> fluids = new Object2IntOpenHashMap<>(32, 0.5f);
+		ObjectOpenHashBigSet<BlockPos> newPoses = new ObjectOpenHashBigSet<>(32, 0.5f);
+		ObjectOpenHashBigSet<BlockPos> nextNewPoses = new ObjectOpenHashBigSet<>(32, 0.5f);
 		newPoses.add(pos);
 		fluids.put(pos, amount);
 
@@ -177,7 +176,7 @@ public class EqualizationFluidTask extends AbstractFluidTask {
 				l = MAX_LEVEL;
 			}
 			if (l != e.getIntValue()) {
-				setFluid(p, l, false);
+				setFluid(p, l);
 			}
 			fluidTicks.done(p);
 		}
@@ -195,7 +194,7 @@ public class EqualizationFluidTask extends AbstractFluidTask {
 				}
 			}
 			if (l != e.getIntValue()) {
-				setFluid(p, l, false);
+				setFluid(p, l);
 			}
 			fluidTicks.done(p);
 		}

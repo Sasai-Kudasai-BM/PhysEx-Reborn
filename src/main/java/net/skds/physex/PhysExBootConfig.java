@@ -1,5 +1,6 @@
 package net.skds.physex;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import net.skds.lib2.io.codec.SosisonUtils;
 import net.skds.lib2.io.codec.UniversalSerializer;
@@ -14,22 +15,21 @@ import java.util.Objects;
 @SuppressWarnings({"FieldMayBeFinal", "FieldCanBeLocal"})
 @Getter
 public final class PhysExBootConfig {
-	public static final Path PATH = PhysEx.CFG_DIR.resolve("boot.json5");
+	public static final Path PATH = PhysEx.CFG_DIR.resolve("boot.jsonc");
 	public static final PhysExBootConfig INSTANCE = load();
 
-	@JsonComment("""
-			
+	private static final int VERSION = 3;
+	private static final String COMMENT = """
+			/*
 			\t+------------------------------------------+
 			\t| Not-reloadable config with major tweaks  |
 			\t| restart is required for changes to apply |
 			\t+------------------------------------------+
-			
-			// Enables the fluids part
-			""")
-	private boolean fluidPhysicsEnabled = true;
+			*/
+			""";
 
-	@JsonComment("Enables the blocks part")
-	private boolean blockPhysicsEnabled = true;
+	@JsonComment("Enables the fluids part")
+	private boolean fluidPhysicsEnabled = true;
 
 	@JsonComment("Adds new logic layer for fluids to chunks (may cause stability issues)")
 	private boolean extraFluidLayerEnabled = true;
@@ -44,12 +44,22 @@ public final class PhysExBootConfig {
 			""")
 	private WaterlogPolicy waterlogPolicy = WaterlogPolicy.ALL_OR_NOTHING;
 
+
+	@JsonComment("Enables the blocks part")
+	private boolean blockPhysicsEnabled = true;
+
 	@JsonComment("Makes this mod server side only")
 	private ServerOnlyPolicy serverOnly = ServerOnlyPolicy.DEFAULT;
 
+	@JsonComment("!!! FOR ADVANCED USERS AND MOD MAKERS	!!! The flag that telling placed block to try displace fluid from it (FLAG = 1 << n)")
+	private int fluidDisplaceFlagBitOffset = 23;
+
+	@JsonComment("!!! Do not touch !!! (not for humans)")
+	@Getter(AccessLevel.NONE)
+	private int configVersion = 0;
 
 	public boolean isExtraFluidLayerEnabled() {
-		return blockPhysicsEnabled && extraFluidLayerEnabled && !serverOnly.isEnabled();
+		return blockPhysicsEnabled && extraFluidLayerEnabled;
 	}
 
 	@Getter
@@ -74,21 +84,33 @@ public final class PhysExBootConfig {
 				PhysExBootConfig cfg = SosisonUtils.parseJson(text, PhysExBootConfig.class);
 				Objects.requireNonNull(cfg);
 				Objects.requireNonNull(cfg.serverOnly);
+				if (cfg.fluidDisplaceFlagBitOffset < 10 || cfg.fluidDisplaceFlagBitOffset > 31)
+					throw new IllegalArgumentException("fluidDisplaceFlagBitOffset is out of bounds [10;31]");
 				//Objects.requireNonNull(cfg.serverOnly.clientWaterlogPolicy);
+
+				if (cfg.configVersion != VERSION) {
+					cfg.configVersion = VERSION;
+					save(cfg);
+				}
 				return cfg;
 			}
 		} catch (Exception e) {
 			e.printStackTrace(System.err);
 		}
 		PhysExBootConfig cfg = new PhysExBootConfig();
+		cfg.configVersion = VERSION;
+		save(cfg);
+		return cfg;
+	}
+
+	private static void save(PhysExBootConfig cfg) {
 		try {
-			UniversalSerializer<PhysExBootConfig> serializer = SosisonUtils.getJson5Registry().getSerializer(PhysExBootConfig.class);
+			UniversalSerializer<PhysExBootConfig> serializer = SosisonUtils.getJsonCRegistry().getSerializer(PhysExBootConfig.class);
 			String text = serializer.toJson(cfg);
 			FileUtils.createParentDirs(PATH);
-			Files.writeString(PATH, text, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+			Files.writeString(PATH, COMMENT + text, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
 		} catch (Exception e) {
 			e.printStackTrace(System.err);
 		}
-		return cfg;
 	}
 }

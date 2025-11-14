@@ -31,4 +31,13 @@ public class FlowingFluidMixin {
 	public void tick(ServerLevel serverLevel, BlockPos blockPos, BlockState blockState, FluidState fluidState) {
 		FluidUtils.handleFluidTick((FlowingFluid) (Object) this, serverLevel, blockPos, blockState, fluidState);
 	}
+
+	/**
+	 * @author Sasai_Kudasai_BM
+	 * @reason a bit faster?
+	 */
+	@Overwrite
+	public static int getLegacyLevel(FluidState fluidState) {
+		return FluidUtils.MAX_LEVEL - fluidState.getAmount() + (fluidState.getValue(FlowingFluid.FALLING) ? FluidUtils.MAX_LEVEL : 0);
+	}
 }

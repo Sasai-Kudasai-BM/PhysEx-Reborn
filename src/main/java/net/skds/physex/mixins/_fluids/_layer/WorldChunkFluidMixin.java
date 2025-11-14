@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.material.FluidState;
 import net.skds.physex.fluids.CustomFluidTicks;
 import net.skds.physex.fluids.FluidUtils;
@@ -31,10 +32,18 @@ public class WorldChunkFluidMixin {
 					   BlockState blockState,
 					   int i,
 					   CallbackInfoReturnable<BlockState> cir,
-					   @Local(name = "blockState2", type = BlockState.class) BlockState oldState
+					   @Local(name = "blockState2", type = BlockState.class) BlockState oldState,
+					   @Local(name = "levelChunkSection", type = LevelChunkSection.class) LevelChunkSection section
 	) {
 		if (!level.isClientSide() && !FluidUtils.isFluidStateOverrided(blockState)) {
 			LevelChunk _this = (LevelChunk) (Object) this;
+			//if (blockState.isAir()) {
+			//	FluidState fs = FluidLayer.getAndResetFluidState(blockPos, _this);
+			//	if (fs != null && !fs.isEmpty()) {
+			//		section.setBlockState(blockPos.getX() & 15, blockPos.getY() & 15, blockPos.getZ() & 15, fs.createLegacyBlock());
+			//	}
+			//	return;
+			//}
 			if (FluidLayer.resetFluidState(blockPos, _this)) {
 				CustomFluidTicks.get(level).fluidLayerUpdate(_this, blockPos);
 			}

@@ -28,18 +28,17 @@ public abstract class AbstractFluidTask implements Runnable {
 		this.randDirs = FluidUtils.randomHorizontal();
 		this.fluidTicks = CustomFluidTicks.get(world);
 	}
-
-
+	
 	protected final boolean isThis(FluidState fs) {
 		return fs.getType().isSame(fluid);
 	}
 
-	protected final void setFluid(BlockPos to, int amount, boolean falling) {
-		setFluid(to, getBlockState(to), getFluidState(to), amount, falling);
+	protected final void setFluid(BlockPos to, int amount) {
+		setFluid(to, getBlockState(to), getFluidState(to), amount, false);
 	}
 
 	protected final void setFluid(BlockPos to, BlockState toState, FluidState toFs, int amount, boolean falling) {
-		fluidTicks.countBlockUpdate(to);
+		fluidTicks.onBlockUpdate(to, fluid.getTickDelay(world));
 		FluidUtils.setFluid(world, to, toState, toFs, fluid, amount, falling);
 	}
 
@@ -67,8 +66,6 @@ public abstract class AbstractFluidTask implements Runnable {
 				return false;
 			}
 		}
-		//if (fromState.hasProperty(BlockStateProperties.WATERLOGGED)) return false;
-		//if (toState.hasProperty(BlockStateProperties.WATERLOGGED)) return false;
 		FluidState toFs = getFluidState(to);
 		if (isThis(toFs)) {
 			return true;
@@ -89,12 +86,6 @@ public abstract class AbstractFluidTask implements Runnable {
 	protected final BlockState getBlockState(BlockPos pos) {
 		fluidTicks.countBlockRead();
 		return world.getBlockState(pos);
-	}
-
-	protected final boolean haveFluidOnTop(BlockPos from) {
-		BlockState fromState = getBlockState(from);
-		VoxelShape fromShape = fromState.getCollisionShape(world, from);
-		return haveFluidOnTop(from, fromState, fromShape);
 	}
 
 	protected final boolean haveFluidOnTop(BlockPos from, BlockState fromState, VoxelShape fromShape) {

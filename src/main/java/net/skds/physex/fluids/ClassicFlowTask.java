@@ -45,19 +45,6 @@ public class ClassicFlowTask extends AbstractFluidTask {
 			moved = true;
 		}
 		if (this.level == 0) return;
-		//BlockPos posD = pos.below();
-		//boolean freeDown = moved || havePath(Direction.DOWN);
-		//if (freeDown) for (int i = 0; i < DIR_LEN; i++) {
-		//	Direction dir = randDirs[i];
-		//	delta = canFlow(posD, dir, this.level, true);
-		//	if (delta > 0) {
-		//		flow(posD.relative(dir), dir, delta);
-		//		moved = true;
-		//		break;
-		//	}
-		//}
-
-		//*
 		int n = 0;
 		for (int i = 0; i < DIR_LEN; i++) {
 			Direction dir = randDirs[i];
@@ -97,26 +84,23 @@ public class ClassicFlowTask extends AbstractFluidTask {
 			if (!haveFluidOnTop(pos, state, shape)) {
 				Vec2F slope = FluidUtils.detectSlope(fluid, world, pos, initialFluidState, world);
 				if (slope.lengthSquared() > FluidUtils.FLOW_THRESHOLD_SQR) {
-					slopeFlow(slope);
-					return;
+					moved = slopeFlow(slope);
+				} else {
+					equalize();
 				}
+			}
+		}
+		if (!moved) {
+			if (initialFluidState.getValue(FlowingFluid.FALLING)) {
+				setFluid(pos, state, initialFluidState, level, false);
+			} else {
 				equalize();
 			}
 		}
 	}
 
-	private int canFlow(BlockPos from, Direction dir, int limit, boolean fromAbove) {
-		BlockState fromState = getBlockState(from);
-		VoxelShape fromShape = fromState.getCollisionShape(world, from);
-		return Math.min(canFlow(from, fromState, fromShape, dir, fromAbove), limit);
-	}
-
 	private void flow(Direction dir, int amount) {
 		flow(pos, state, pos.relative(dir), dir, amount);
-	}
-
-	private void flow(BlockPos to, Direction dir, int amount) {
-		flow(pos, state, to, dir, amount);
 	}
 
 	private void flow(BlockPos from, BlockState fromState, BlockPos to, Direction dir, int amount) {
@@ -134,22 +118,23 @@ public class ClassicFlowTask extends AbstractFluidTask {
 		}
 	}
 
-	private void slopeFlow(Vec2F slope) {
+	private boolean slopeFlow(Vec2F slope) {
 
 		Direction dir = FluidUtils.getDirection(slope.xf(), slope.yf());
-		if (dir == null) return;
+		if (dir == null) return false;
 		int delta = canFlow(dir);
 		if (delta > 0) {
 			delta /= 2;
 			if (delta == 0) delta = 1;
 			flow(dir, delta);
+			return true;
 		} else {
-			equalize();
+			return false;
 		}
 	}
 
 	private void equalize() {
-		if (level < 2) return;
+		if (level < 2 && !havePath(pos, state, shape, Direction.DOWN)) return;
 		fluidTicks.scheduleEqualization(pos, fluid, world);
 	}
 
@@ -170,8 +155,6 @@ public class ClassicFlowTask extends AbstractFluidTask {
 				return 0;
 			}
 		}
-		//if (fromState.hasProperty(BlockStateProperties.WATERLOGGED)) return 0;
-		//if (toState.hasProperty(BlockStateProperties.WATERLOGGED)) return 0;
 		FluidState toFs = getFluidState(to);
 		if (isThis(toFs)) {
 			int level2 = toFs.getAmount();
@@ -183,10 +166,4 @@ public class ClassicFlowTask extends AbstractFluidTask {
 		if (toFs.isEmpty() || canReplace(toFs, to, dir)) return MAX_LEVEL;
 		return 0;
 	}
-
-	private boolean havePath(Direction dir) {
-		return havePath(pos, state, shape, dir);
-	}
-
-
 }
