@@ -26,7 +26,8 @@ public abstract class BottleItemMixin extends Item {
 	}
 
 	@Redirect(method = "use", at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/world/level/material/FluidState;is(Lnet/minecraft/tags/TagKey;)Z"
+			target = "Lnet/minecraft/world/level/material/FluidState;is(Lnet/minecraft/tags/TagKey;)Z",
+			ordinal = 0
 	))
 	public boolean use(FluidState fs,
 					   TagKey<Fluid> tagKey,
@@ -45,7 +46,8 @@ public abstract class BottleItemMixin extends Item {
 	}
 
 	@Redirect(method = "use", at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/world/item/BottleItem;getPlayerPOVHitResult(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/ClipContext$Fluid;)Lnet/minecraft/world/phys/BlockHitResult;"
+			target = "Lnet/minecraft/world/item/BottleItem;getPlayerPOVHitResult(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/ClipContext$Fluid;)Lnet/minecraft/world/phys/BlockHitResult;",
+			ordinal = 0
 
 	))
 	public BlockHitResult use(Level level, Player player, ClipContext.Fluid fluid) {

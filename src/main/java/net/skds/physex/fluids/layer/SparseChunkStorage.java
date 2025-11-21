@@ -19,8 +19,8 @@ public class SparseChunkStorage<T> {
 	@Getter
 	private int[] stateCount;
 
-	private final Int2IntOpenHashMap data = new Int2IntOpenHashMap();
-	private final Object2IntOpenHashMap<T> dictionary = new Object2IntOpenHashMap<>();
+	private final Int2IntOpenHashMap data = new Int2IntOpenHashMap(INITIAL_SIZE * 2, 0.5f);
+	private final Object2IntOpenHashMap<T> dictionary = new Object2IntOpenHashMap<>(INITIAL_SIZE, 0.5f);
 	private final BitSet slots = new BitSet();
 	private final ToIntFunction<T> freeSeeker = fs -> {
 		int index = slots.nextClearBit(0);
@@ -138,7 +138,7 @@ public class SparseChunkStorage<T> {
 	public Int2ObjectOpenHashMap<T> cutSection(int bottomY) {
 		if (isEmpty()) return null;
 		int bottomIndex = bottomY << 8;
-		Int2ObjectOpenHashMap<T> map = new Int2ObjectOpenHashMap<>();
+		Int2ObjectOpenHashMap<T> map = new Int2ObjectOpenHashMap<>(INITIAL_SIZE, 0.5f);
 		for (var e : this.data.int2IntEntrySet()) {
 			int ei = e.getIntKey() - bottomIndex;
 			if (ei >= 0 && ei < 16 << 8) {

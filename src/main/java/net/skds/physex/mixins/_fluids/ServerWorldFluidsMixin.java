@@ -49,7 +49,7 @@ public abstract class ServerWorldFluidsMixin extends Level {
 
 	@Override
 	public void scheduleTick(BlockPos blockPos, Fluid fluid, int i) {
-		i = FluidUtils.modifyTickRate((ServerLevel) (Object) this, blockPos, fluid, i);
+		i = FluidUtils.modifyTickRate(i);
 		this.getFluidTicks().schedule(this.createTick(blockPos, fluid, i));
 	}
 

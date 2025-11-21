@@ -17,6 +17,7 @@ import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.BlockHitResult;
 import net.skds.physex.fluids.FluidUtils;
+import net.skds.physex.fluids.FreeFluidSpace;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -76,7 +77,12 @@ public abstract class BucketItemFluidMixin {
 				}
 				cir.setReturnValue(true);
 			} else if (!level.isClientSide()) {
-				FluidUtils.placeFluid((ServerLevel) level, blockPos, flowingFluid, FluidUtils.MAX_LEVEL);
+				FreeFluidSpace space = FluidUtils.findSpaceForFluid((ServerLevel) level, blockPos, flowingFluid, FluidUtils.MAX_LEVEL, FluidUtils.FS_GETTER);
+				if (space.remaining() > 0) {
+					cir.setReturnValue(false);
+					return;
+				}
+				FluidUtils.placeFluid((ServerLevel) level, flowingFluid, space);
 
 				this.playEmptySound(livingEntity, level, blockPos);
 				cir.setReturnValue(true);

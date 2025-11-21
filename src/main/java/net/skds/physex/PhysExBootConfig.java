@@ -18,7 +18,7 @@ public final class PhysExBootConfig {
 	public static final Path PATH = PhysEx.CFG_DIR.resolve("boot.jsonc");
 	public static final PhysExBootConfig INSTANCE = load();
 
-	private static final int VERSION = 3;
+	private static final int VERSION = 4;
 	private static final String COMMENT = """
 			/*
 			\t+------------------------------------------+
@@ -45,7 +45,7 @@ public final class PhysExBootConfig {
 	private WaterlogPolicy waterlogPolicy = WaterlogPolicy.ALL_OR_NOTHING;
 
 
-	@JsonComment("Enables the blocks part")
+	@JsonComment("Enables the blocks part (WIP)")
 	private boolean blockPhysicsEnabled = true;
 
 	@JsonComment("Makes this mod server side only")

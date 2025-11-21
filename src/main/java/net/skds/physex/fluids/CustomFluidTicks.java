@@ -67,6 +67,7 @@ public class CustomFluidTicks extends LevelTicks<Fluid> {
 
 	public void onBlockUpdate(BlockPos pos, int tickDelay) {
 		blockUpdateCounter++;
+		tickDelay = FluidUtils.modifyTickRate(tickDelay);
 		tickDelay--;
 		if (tickDelay < 1) return;
 		long p = pos.asLong();

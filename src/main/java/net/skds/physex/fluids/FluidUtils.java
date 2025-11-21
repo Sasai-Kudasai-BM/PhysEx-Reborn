@@ -1,6 +1,8 @@
 package net.skds.physex.fluids;
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.experimental.UtilityClass;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
@@ -12,8 +14,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
@@ -22,6 +22,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FireBlock;
 import net.minecraft.world.level.block.LiquidBlockContainer;
+import net.minecraft.world.level.block.piston.PistonStructureResolver;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.chunk.ChunkAccess;
@@ -41,6 +42,8 @@ import net.skds.physex.PhysExGameRules;
 import net.skds.physex.fluids.layer.FluidLayer;
 
 import java.util.ArrayDeque;
+import java.util.List;
+import java.util.function.BiFunction;
 
 @UtilityClass
 public class FluidUtils {
@@ -66,6 +69,9 @@ public class FluidUtils {
 	public static final boolean FLUID_CHUNK_LAYER = PhysExBootConfig.INSTANCE.isExtraFluidLayerEnabled();
 	public static final PhysExBootConfig.WaterlogPolicy WATERLOG_POLICY = PhysExBootConfig.INSTANCE.getWaterlogPolicy();
 
+
+	public static final BiFunction<Level, BlockPos, FluidState> FS_GETTER = Level::getFluidState;
+	public static final Direction[] HORIZONTAL = {Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH};
 	public static final Direction[] WATER_LAVA_DIR = {Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH, Direction.UP};
 	public static final FluidState EMPTY = Fluids.EMPTY.defaultFluidState();
 	public static final float FLUID_OPEN_HEIGHT = MAX_LEVEL / 9f;
@@ -155,8 +161,40 @@ public class FluidUtils {
 		return FastMath.RANDOM.nextBoolean() ? cx : cz;
 	}
 
-	public static void placeBlockHook(BlockItem item, BlockPlaceContext blockPlaceContext, BlockState blockState) {
-
+	public static boolean pistonHook(ServerLevel world, PistonStructureResolver pistonStructureResolver, BlockPos blockPos, Direction direction) {
+		List<BlockPos> destroys = pistonStructureResolver.getToDestroy();
+		Object2ObjectOpenHashMap<BlockPos, FluidState> displaceStates = new Object2ObjectOpenHashMap<>(8, .5f);
+		for (BlockPos pos : destroys) {
+			FluidState fs = world.getFluidState(pos);
+			if (!fs.isEmpty() && fs.getType() instanceof FlowingFluid) {
+				displaceStates.put(pos, fs);
+			}
+		}
+		if (displaceStates.isEmpty()) return true;
+		Object2ObjectOpenHashMap<BlockPos, FluidState> positions = new Object2ObjectOpenHashMap<>(displaceStates.size() * 2, .5f);
+		BiFunction<Level, BlockPos, FluidState> filter = (w, bp) -> {
+			FluidState fs = positions.get(bp);
+			if (fs == null) {
+				return w.getFluidState(bp);
+			}
+			return fs;
+		};
+		for (var e : displaceStates.entrySet()) {
+			FluidState fs = e.getValue();
+			FlowingFluid fluid = (FlowingFluid) fs.getType();
+			FreeFluidSpace space = findSpaceForFluidAround(world, e.getKey(), fluid, fs.getAmount(), filter);
+			if (!space.isEmpty()) {
+				if (space.remaining() > 0) return false;
+				for (var e2 : space.positions().object2IntEntrySet()) {
+					FluidState fs2 = getFluidState(fluid, e2.getIntValue(), false);
+					positions.put(e2.getKey(), fs2);
+				}
+			}
+		}
+		if (!positions.isEmpty()) for (var e : positions.entrySet()) {
+			setFluidState(world, e.getKey(), e.getValue());
+		}
+		return true;
 	}
 
 	public static void handleFluidTick(FlowingFluid ff, ServerLevel world, BlockPos blockPos, BlockState blockState, FluidState fluidState) {
@@ -319,7 +357,7 @@ public class FluidUtils {
 		return fluidState.isEmpty() || fluidState.getType().isSame(fluid);
 	}
 
-	public static int modifyTickRate(ServerLevel world, BlockPos pos, Fluid fluid, int time) { // TODO config
+	public static int modifyTickRate(int time) { // TODO config
 		return time / 2;
 	}
 
@@ -390,21 +428,89 @@ public class FluidUtils {
 		return (flags & Block.UPDATE_IMMEDIATE) != 0 && (flags & Block.UPDATE_NEIGHBORS) != 0;
 	}
 
-	public static int placeFluid(ServerLevel world, BlockPos to, FlowingFluid fluid, int amount) {
-		if (amount < 1 || fluid == Fluids.EMPTY) return 0;
-		FluidState fs2 = world.getFluidState(to);
-		boolean same = fs2.getType().isSame(fluid);
-		if (same || fs2.isEmpty()) {
-			int fsl = same ? fs2.getAmount() : 0;
-			int capacity = MAX_LEVEL - fsl;
-			int toPut = Math.min(amount, capacity);
-			if (toPut > 0) {
-				amount -= toPut;
-				setFluid(world, to, world.getBlockState(to), fs2, fluid, toPut + fsl, false, false);
+	public static void placeFluid(ServerLevel world, FlowingFluid fluid, FreeFluidSpace space) {
+		for (var e : space.positions().object2IntEntrySet()) {
+			setFluid(world, e.getKey(), fluid, e.getIntValue(), false);
+		}
+	}
+
+	public static FreeFluidSpace findSpaceForFluid(ServerLevel world,
+												   BlockPos to,
+												   FlowingFluid fluid,
+												   int amount,
+												   BiFunction<Level, BlockPos, FluidState> fsGetter
+	) {
+		if (amount < 1 || fluid == Fluids.EMPTY) return FreeFluidSpace.EMPTY;
+
+		int toPut0 = 0;
+		BlockPos to0 = null;
+		FluidState fs2 = fsGetter.apply(world, to);
+		if (fs2 != null) {
+			boolean same = fs2.getType().isSame(fluid);
+			if (same || fs2.isEmpty()) {
+				int fsl = same ? fs2.getAmount() : 0;
+				int capacity = MAX_LEVEL - fsl;
+				int toPut = Math.min(amount, capacity);
+				if (toPut > 0) {
+					amount -= toPut;
+					toPut0 = toPut;
+					to0 = to;
+				}
 			}
 		}
-		if (amount > 0) return placeFluidAround(world, to, fluid, amount);
-		return 0;
+		if (amount > 0) {
+			FreeFluidSpace ffs = findSpaceForFluidAround(world, to, fluid, amount, fsGetter);
+			if (!ffs.isEmpty()) {
+				ffs.positions().put(to0, toPut0);
+				return ffs;
+			}
+		}
+		return FreeFluidSpace.single(to0, toPut0, amount);
+	}
+
+	public static FreeFluidSpace findSpaceForFluidAround(ServerLevel world,
+														 BlockPos to,
+														 FlowingFluid fluid,
+														 int amount,
+														 BiFunction<Level, BlockPos, FluidState> fsGetter
+	) {
+		LongOpenHashSet visited = new LongOpenHashSet(amount * 6, 0.5f);
+		ArrayDeque<BlockPos> queue = new ArrayDeque<>(amount * 6);
+		Object2IntOpenHashMap<BlockPos> map = new Object2IntOpenHashMap<>(16, .5f);
+		visited.add(to.asLong());
+		queue.offer(to);
+		BlockPos next;
+		int limit = 128;
+		int i = 0;
+		while ((next = queue.poll()) != null) {
+			if (i++ > limit) break;
+			for (Direction dir : randomAllPriority()) {
+				BlockPos p2 = next.relative(dir);
+				long lp = p2.asLong();
+				if (visited.contains(lp)) continue;
+				BlockState state2 = world.getBlockState(p2);
+				VoxelShape shape2 = state2.getCollisionShape(world, p2);
+				if (to == next ? !isPathBlocked(null, Shapes.empty(), state2, shape2, dir) : !isPathBlocked(world, next, p2, state2, shape2)) {
+					visited.add(lp);
+					FluidState fs2 = fsGetter.apply(world, p2);
+					if (fs2 == null) {
+						if (amount > 0) queue.add(p2);
+						continue;
+					}
+					boolean same = fs2.getType().isSame(fluid);
+					if (!same && !fs2.isEmpty() && !fs2.canBeReplacedWith(world, p2, fluid, dir)) continue;
+					int fsl = same ? fs2.getAmount() : 0;
+					int capacity = MAX_LEVEL - fsl;
+					int toPut = Math.min(amount, capacity);
+					if (toPut > 0) {
+						amount -= toPut;
+						map.put(p2, toPut);
+					}
+					if (amount > 0) queue.add(p2);
+				}
+			}
+		}
+		return new FreeFluidSpace(map, amount);
 	}
 
 	public static int placeFluidAround(ServerLevel world, BlockPos to, FlowingFluid fluid, int amount) {
@@ -443,7 +549,6 @@ public class FluidUtils {
 	}
 
 	public static void displaceHook(ServerLevel world, BlockPos to, BlockState oldState, BlockState newState, FluidState newFs, FluidState correctFs, int flags) {
-
 		if (newFs.isEmpty() && newState.isAir() && isLiquid(oldState)) {
 			return;
 		}
@@ -459,10 +564,37 @@ public class FluidUtils {
 		}
 	}
 
+	public static void scheduleExtraUpdates(Level world, BlockPos pos, Fluid fluid) {
+		BlockPos posU = pos.above();
+		for (Direction direction : HORIZONTAL) {
+			world.scheduleTick(posU.relative(direction), fluid, fluid.getTickDelay(world));
+		}
+	}
+
+	public static void scheduleExtraUpdates(Level world, BlockPos pos) {
+		BlockPos posU = pos.above();
+		for (Direction direction : HORIZONTAL) {
+			BlockPos pos2U = posU.relative(direction);
+			FluidState fs = world.getFluidState(pos2U);
+			if (!fs.isEmpty()) {
+				Fluid fluid = fs.getType();
+				world.scheduleTick(pos2U, fluid, fluid.getTickDelay(world));
+			}
+		}
+	}
+
 	public static void setFluidState(Level world, BlockPos to, BlockState toState, FluidState toFs, FluidState fs) {
 		Fluid f0 = fs.isEmpty() ? toFs.getType() : fs.getType();
 		if (f0 instanceof FlowingFluid flowingFluid) {
 			setFluid(world, to, toState, toFs, flowingFluid, fs, true);
+		}
+	}
+
+	public static void setFluidState(Level world, BlockPos to, FluidState fs) {
+		FluidState toFs = world.getFluidState(to);
+		Fluid f0 = fs.isEmpty() ? toFs.getType() : fs.getType();
+		if (f0 instanceof FlowingFluid flowingFluid) {
+			setFluid(world, to, world.getBlockState(to), toFs, flowingFluid, fs, true);
 		}
 	}
 
@@ -497,6 +629,7 @@ public class FluidUtils {
 			}
 			if (!world.isClientSide()) {
 				CustomFluidTicks.get(world).fluidLayerUpdate(ca, to);
+				scheduleExtraUpdates(world, to, fluid);
 			}
 		}
 

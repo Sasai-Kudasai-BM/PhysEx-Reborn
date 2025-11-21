@@ -3,6 +3,7 @@ package net.skds.physex.mixins._fluids;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.material.FluidState;
@@ -34,14 +35,19 @@ public abstract class WorldFluidsMixin {
 	) {
 		FluidState fs = null;
 		boolean check = false;
-		if (!isClientSide() && FluidUtils.checkFlagsForDisplace(flags)) {
-			ServerLevel world = (ServerLevel) (Object) this;
-			int limit = world.getGameRules().getInt(PhysExGameRules.FLUID_DISPLACEMENT_LIMIT);
-			if (limit > 0) {
-				fs = getFluidState(blockPos);
-				if (!fs.isEmpty() && fs != blockState.getFluidState()) {
-					check = true;
+		if (!isClientSide()) {
+			if (FluidUtils.checkFlagsForDisplace(flags)) {
+				ServerLevel world = (ServerLevel) (Object) this;
+				int limit = world.getGameRules().getInt(PhysExGameRules.FLUID_DISPLACEMENT_LIMIT);
+				if (limit > 0) {
+					fs = getFluidState(blockPos);
+					if (!fs.isEmpty() && fs != blockState.getFluidState()) {
+						check = true;
+					}
 				}
+			}
+			if ((flags & Block.UPDATE_NEIGHBORS) != 0) {
+				FluidUtils.scheduleExtraUpdates((Level) (Object) this, blockPos);
 			}
 		}
 		BlockState oldState = chunk.setBlockState(blockPos, blockState, flags);

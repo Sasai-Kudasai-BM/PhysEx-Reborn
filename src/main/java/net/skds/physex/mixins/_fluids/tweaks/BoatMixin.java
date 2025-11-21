@@ -37,7 +37,8 @@ public abstract class BoatMixin extends VehicleEntity {
 	}
 
 	@Redirect(method = "isUnderwater", at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/world/entity/vehicle/AbstractBoat;getBoundingBox()Lnet/minecraft/world/phys/AABB;"
+			target = "Lnet/minecraft/world/entity/vehicle/AbstractBoat;getBoundingBox()Lnet/minecraft/world/phys/AABB;",
+			ordinal = 0
 	))
 	private AABB isUnderWater(AbstractBoat instance) {
 		return instance.getBoundingBox().expandTowards(0, .2, 1);
