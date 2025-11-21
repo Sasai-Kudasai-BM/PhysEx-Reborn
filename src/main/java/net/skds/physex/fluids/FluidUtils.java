@@ -71,9 +71,13 @@ public class FluidUtils {
 	public static final float FLUID_OPEN_HEIGHT = MAX_LEVEL / 9f;
 	public static final float ONE_LEVEL = 1f / MAX_LEVEL;
 	public static final float MICRO_FLOW_THRESHOLD = 1E-7F;
-	public static final float FLOW_THRESHOLD_AXIS = ONE_LEVEL * 2f + MICRO_FLOW_THRESHOLD;
-	public static final float FLOW_THRESHOLD = MICRO_FLOW_THRESHOLD;//+ ONE_LEVEL * FastMath.SQRT_2
+	public static final float FLOW_SLOPE_THRESHOLD_AXIS = ONE_LEVEL * 2f + MICRO_FLOW_THRESHOLD;
+	public static final float FLOW_THRESHOLD_AXIS = ONE_LEVEL + MICRO_FLOW_THRESHOLD;
+	public static final float FLOW_THRESHOLD = MICRO_FLOW_THRESHOLD;
 	public static final float FLOW_THRESHOLD_SQR = FLOW_THRESHOLD * FLOW_THRESHOLD + MICRO_FLOW_THRESHOLD;
+
+	public static final float BOAT_FLOATABILITY = 0.02f;
+	public static final float BOAT_FLOAT_OFFSET = -0.15f;
 
 	private static final Direction[][] SHUFFLE_H = {
 			{Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH},
@@ -222,7 +226,7 @@ public class FluidUtils {
 				}
 			}
 
-			if (deltaH > FLOW_THRESHOLD_AXIS || deltaH < -FLOW_THRESHOLD_AXIS) {
+			if (deltaH > FLOW_SLOPE_THRESHOLD_AXIS || deltaH < -FLOW_SLOPE_THRESHOLD_AXIS) {
 				dx += dir.getStepX() * deltaH;
 				dz += dir.getStepZ() * deltaH;
 			}
@@ -232,14 +236,48 @@ public class FluidUtils {
 	}
 
 	public static Vec3 getFlow(FlowingFluid fluid, BlockGetter world, BlockPos pos, FluidState fs) {
-		Vec2F slope = detectSlope(fluid, world, pos, fs, null);
+
+		float dx = 0;
+		float dz = 0;
+		BlockPos posD = pos.below();
+		float offset = 0;
+		FluidState fsD = world.getFluidState(posD);
+		if (fsD.getType().isSame(fluid)) {
+			offset = ONE_LEVEL;
+		}
+		float h = fs.getOwnHeight();
+		for (Direction dir : Direction.Plane.HORIZONTAL) {
+			float deltaH = 0.0F;
+			BlockPos pos2 = pos.relative(dir);
+			FluidState fs2 = world.getFluidState(pos2);
+
+			if (affectsFlow(fluid, fs2) && !isPathBlocked(world, pos, pos2)) {
+				float h2 = fs2.getOwnHeight();
+				if (h2 == 0) {
+					BlockPos pos2d = pos2.below();
+					FluidState fs2d = world.getFluidState(pos2d);
+					if (affectsFlow(fluid, fs2d) && !isPathBlocked(world, pos2, pos2d)) {
+						deltaH = (h + 1 - offset - fs2d.getOwnHeight());
+					} else {
+						deltaH = h;
+					}
+				} else if (h2 > 0.0F) {
+					deltaH = (h - h2);
+				}
+			}
+
+			if (deltaH > FLOW_THRESHOLD_AXIS || deltaH < -FLOW_THRESHOLD_AXIS) {
+				dx += dir.getStepX() * deltaH;
+				dz += dir.getStepZ() * deltaH;
+			}
+		}
 
 		float dy = 0;
 		if (isFalling(fs)) {
 			dy -= 2;
 		}
 
-		return new Vec3(slope.xf(), dy, slope.yf());
+		return new Vec3(dx, dy, dz);
 	}
 
 	public static boolean isPathBlocked(BlockGetter world, BlockPos from, BlockPos to, BlockState toState, VoxelShape toShape) {
@@ -454,7 +492,9 @@ public class FluidUtils {
 		if (override) {
 			ChunkAccess ca = world.getChunk(to);
 			FluidLayer.setFluidState(to, ca, fs);
-			world.scheduleTick(to, fluid, fluid.getTickDelay(world));
+			if (!fs.isEmpty()) {
+				world.scheduleTick(to, fluid, fluid.getTickDelay(world));
+			}
 			if (!world.isClientSide()) {
 				CustomFluidTicks.get(world).fluidLayerUpdate(ca, to);
 			}

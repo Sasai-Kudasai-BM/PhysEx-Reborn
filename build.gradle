@@ -42,13 +42,9 @@ allprojects {
 		testAnnotationProcessor 'org.projectlombok:lombok:1.18.40'
 	}
 
-	//tasks.withType(JavaCompile).configureEach {
-	//    it.options.release = 21
-	//    it.options.re = 25
-	//}
 	java {
-		sourceCompatibility = JavaVersion.VERSION_25
-		targetCompatibility = JavaVersion.VERSION_25
+		sourceCompatibility = JavaVersion.VERSION_21
+		targetCompatibility = JavaVersion.VERSION_21
 	}
 }
 
@@ -78,3 +74,32 @@ processResources {
 	}
 }
 
+project(":skdslib") {
+	sourceSets {
+		List<String> excludes = List.of(
+				"net/skds/lib2/natives/**",
+				"net/skds/lib2/shapes/**",
+				"net/skds/lib2/shapes2d/**",
+				"net/skds/lib2/physics2d/**",
+				"net/skds/lib2/shapes2d/Demo2D.java",
+				"net/skds/lib2/demo/**",
+				"net/skds/lib2/security/**",
+				"net/skds/lib2/network/**",
+				"net/skds/lib2/misc/noise/**",
+				"net/skds/lib2/utils/platforms/**",
+				"net/skds/tests/**",
+				"net/skds/lib2/utils/ThreadAnalyzer.java"
+		)
+
+		main {
+			java {
+				exclude excludes
+			}
+		}
+		test {
+			java {
+				exclude excludes
+			}
+		}
+	}
+}

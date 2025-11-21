@@ -28,7 +28,7 @@ public class PhysEx implements ModInitializer {
 		}
 
 		CommandRegistrationCallback.EVENT.register(
-				(dispatcher, _, _) ->
+				(dispatcher, ignored, ignored1) ->
 						FluidDebugCommand.create(dispatcher)
 		);
 	}

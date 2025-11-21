@@ -82,28 +82,25 @@ public record FluidLayer(SparseChunkStorage<FluidState> data) {
 		try {
 			CompoundTag nbt = tag.asCompound().orElse(null);
 			if (nbt == null || nbt.isEmpty()) return new FluidLayer();
-			return new FluidLayer(nbt);
+
+			ListTag dictionary = nbt.getListOrEmpty(DICTIONARY_KEY);
+			FluidState[] states = new FluidState[dictionary.size()];
+			int i = 0;
+			for (Tag tag2 : dictionary) {
+				if (tag2.getType() == ByteTag.TYPE) {
+					states[i++] = null;
+					continue;
+				}
+				FluidState fs = FluidState.CODEC.parse(NbtOps.INSTANCE, tag2).getOrThrow();
+				states[i++] = fs;
+			}
+			long[] d = nbt.getLongArray(DATA_KEY).orElse(ArrayUtils.EMPTY_LONG);
+			SparseChunkStorage.Data<FluidState> data = new SparseChunkStorage.Data<>(d, states);
+			return new FluidLayer(new SparseChunkStorage<>(data));
 		} catch (Exception e) {
 			e.printStackTrace(System.err);
 			return new FluidLayer();
 		}
-	}
-
-	FluidLayer(CompoundTag nbt) {
-		ListTag dictionary = nbt.getListOrEmpty(DICTIONARY_KEY);
-		FluidState[] states = new FluidState[dictionary.size()];
-		int i = 0;
-		for (Tag tag : dictionary) {
-			if (tag.getType() == ByteTag.TYPE) {
-				states[i++] = null;
-				continue;
-			}
-			FluidState fs = FluidState.CODEC.parse(NbtOps.INSTANCE, tag).getOrThrow();
-			states[i++] = fs;
-		}
-		long[] d = nbt.getLongArray(DATA_KEY).orElse(ArrayUtils.EMPTY_LONG);
-		SparseChunkStorage.Data<FluidState> data = new SparseChunkStorage.Data<>(d, states);
-		this(new SparseChunkStorage<>(data));
 	}
 
 	CompoundTag toNbt() {
@@ -127,8 +124,7 @@ public record FluidLayer(SparseChunkStorage<FluidState> data) {
 		return root;
 	}
 
-
-	FluidLayer(FriendlyByteBuf buf) {
+	public static FluidLayer read(FriendlyByteBuf buf) {
 		long[] data = buf.readLongArray();
 		int[] indexes = buf.readVarIntArray();
 		FluidState[] states = new FluidState[indexes.length];
@@ -141,8 +137,9 @@ public record FluidLayer(SparseChunkStorage<FluidState> data) {
 			states[i] = Fluid.FLUID_STATE_REGISTRY.byId(index - 1);
 		}
 		SparseChunkStorage.Data<FluidState> d = new SparseChunkStorage.Data<>(data, states);
-		this(new SparseChunkStorage<>(d));
+		return new FluidLayer(new SparseChunkStorage<>(d));
 	}
+
 
 	static void writeToBuffer(FriendlyByteBuf buf, FluidLayer layer) {
 		SparseChunkStorage.Data<FluidState> d = layer.data().getData();

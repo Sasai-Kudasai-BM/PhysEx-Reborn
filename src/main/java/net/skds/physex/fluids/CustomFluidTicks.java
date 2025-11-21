@@ -67,12 +67,14 @@ public class CustomFluidTicks extends LevelTicks<Fluid> {
 
 	public void onBlockUpdate(BlockPos pos, int tickDelay) {
 		blockUpdateCounter++;
+		tickDelay--;
+		if (tickDelay < 1) return;
 		long p = pos.asLong();
 		long t = world.getGameTime() + tickDelay;
 		long oldT = equalizationBlacklistSet.getOrDefault(p, -1);
 		if (oldT < t) {
 			equalizationBlacklistSet.put(p, t);
-			var set = equalizationBlacklistMap.computeIfAbsent(t, _ -> new LongOpenHashSet(256, .5f));
+			var set = equalizationBlacklistMap.computeIfAbsent(t, ignored -> new LongOpenHashSet(256, .5f));
 			set.add(p);
 			if (oldT >= 0) {
 				set = equalizationBlacklistMap.get(oldT);
@@ -123,7 +125,7 @@ public class CustomFluidTicks extends LevelTicks<Fluid> {
 		profiler.pop();
 		//equalizationSet.clear();
 		//equalizationQueue.clear();
-		
+
 		//equalizationBlacklistSet.clear();
 		long t = world.getGameTime();
 		var set = equalizationBlacklistMap.remove(t);
