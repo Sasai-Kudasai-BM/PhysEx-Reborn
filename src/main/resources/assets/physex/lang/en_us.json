@@ -3,12 +3,10 @@
 	"gamerule.physexTaskLimit.description": "Limit for fluid update tasks",
 	"gamerule.physexDripstoneFillCauldron": "Dripstone fill cauldron",
 	"gamerule.physexDripstoneFillCauldron.description": "Will dripstone fill cauldrons",
-	"gamerule.physexDestroyNotDisplacedFluids": "Displacement destroy",
-	"gamerule.physexDestroyNotDisplacedFluids.description": "Will fluids that failed to displace disappear (always true if \"config/physex/boot.extraFluidLayerEnabled\" is false)",
-	"gamerule.physexBlockPistons": "Fluid blocks pistons",
-	"gamerule.physexBlockPistons.description": "Blocks piston movement in it have no space to displace fluid",
 	"gamerule.physexFluidDisplacementLimit": "Fluid displacement limit",
 	"gamerule.physexFluidDisplacementLimit.description": "Maximum distance for fluids to find the way out when block placed in (0 = no displacement)",
 	"gamerule.physexWaterHotFluidEvaporation": "Water evaporation upon contact with lava",
-	"gamerule.physexWaterHotFluidEvaporation.description": "Number of layers that will evaporate (0 = no evaporation)"
+	"gamerule.physexWaterHotFluidEvaporation.description": "Number of layers that will evaporate (0 = no evaporation)",
+	"gamerule.FarmlandWaterIntake": "Farmland consumes water",
+	"gamerule.FarmlandWaterIntake.description": "Farmland consumes water, farmland also need to be connected with dirt-like block with water (0 = no consumption, -1 = vanilla behavior)"
 }

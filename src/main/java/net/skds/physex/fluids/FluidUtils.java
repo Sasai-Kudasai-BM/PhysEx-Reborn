@@ -16,6 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
@@ -58,6 +59,10 @@ public class FluidUtils {
 			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "flammable")
 	);
 
+	public static final TagKey<Block> FARMLAND_WATER_WAY = TagKey.create(Registries.BLOCK,
+			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "farmland_water_way")
+	);
+
 	public static final int DISPLACE_FLAG = 1 << PhysExBootConfig.INSTANCE.getFluidDisplaceFlagBitOffset();
 
 	public static final int BURN_TEMP = 500 + 273;
@@ -66,7 +71,8 @@ public class FluidUtils {
 	public static final int LEVELS_IN_BOTTLE = FastMath.ceil((float) FluidConstants.BOTTLE / FLUID_IN_LEVEL);
 
 	public static final boolean FLUID_CHUNK_LAYER = PhysExBootConfig.INSTANCE.isExtraFluidLayerEnabled();
-	public static final PhysExBootConfig.WaterlogPolicy WATERLOG_POLICY = PhysExBootConfig.INSTANCE.getWaterlogPolicy();
+	public static final PhysExBootConfig.WaterlogPolicy WATERLOG_POLICY = PhysExBootConfig.WaterlogPolicy.ALL_OR_NOTHING;
+	//PhysExBootConfig.INSTANCE.getWaterlogPolicy();
 
 
 	public static final BiFunction<Level, BlockPos, FluidState> FS_GETTER = Level::getFluidState;
@@ -237,7 +243,7 @@ public class FluidUtils {
 		if (fsD.getType().isSame(fluid)) {
 			offset = 0;
 		}
-		int slopeDistance = Math.min(getSlopeDistance(fluid, betterWorld), 4);
+		int slopeDistance = Math.min(getSlopeDistance(fluid, betterWorld), 3);
 		float h = fs.getHeight(world, pos);
 		for (Direction dir : Direction.Plane.HORIZONTAL) {
 			float deltaH = 0.0F;
@@ -397,9 +403,9 @@ public class FluidUtils {
 	public static boolean canHandleFluid(BlockState blockState, FlowingFluid fluid) {
 		if (fluid == Fluids.EMPTY) return true;
 		if (blockState.is(FLUID_NOT_FRIENDLY_TAG)) return false;
-		if (isFlammable(blockState)) {
-			int temp = FluidVariantAttributes.getTemperature(FluidVariant.of(fluid.getSource()));
-			return temp < BURN_TEMP;
+		int temp = FluidVariantAttributes.getTemperature(FluidVariant.of(fluid.getSource()));
+		if (temp >= BURN_TEMP) {
+			return !isFlammable(blockState);
 		}
 		//if (blockState.is(FLUID_FRIENDLY_TAG)) return true;
 		return true;
@@ -457,8 +463,8 @@ public class FluidUtils {
 				int toPut = Math.min(amount, capacity);
 				if (toPut > 0) {
 					amount -= toPut;
-					occupied0 = fsl + toPut;
 				}
+				occupied0 = fsl + toPut;
 			}
 		}
 		FluidDistribution ffs = findSpaceForFluidAround(world, to, fluid, amount, fsGetter);
@@ -629,5 +635,46 @@ public class FluidUtils {
 				world.setBlock(to, bs, flags, 16);
 			}
 		}
+	}
+
+	public static boolean farmlandConsumeWater(BlockState bs,
+	                                           ServerLevel world,
+	                                           BlockPos blockPos,
+	                                           RandomSource random,
+	                                           int wetLevels,
+	                                           int intake
+	) {
+		ObjectOpenHashSet<BlockPos> visited = new ObjectOpenHashSet<>(25, .5f);
+		ArrayDeque<BlockPos> next = new ArrayDeque<>();
+		ArrayDeque<BlockPos> current;
+		next.add(blockPos);
+		visited.add(blockPos);
+		for (int i = 0; i < 6; i++) {
+			BlockPos p0;
+			current = next;
+			next = new ArrayDeque<>();
+			while ((p0 = current.poll()) != null) {
+				for (Direction dir : randomHorizontal()) {
+					BlockPos p2 = p0.relative(dir);
+					if (!visited.add(p2) || p2.distSqr(blockPos) > 24) {
+						continue;
+					}
+					FluidState fs2 = world.getFluidState(p2);
+					if (fs2.is(FluidTags.WATER)) {
+						if (intake > 0 && random.nextInt(1000) < intake * wetLevels && fs2.getType() instanceof FlowingFluid ff) {
+							BlockState bs2 = world.getBlockState(p2);
+							setFluid(world, p2, bs2, fs2, ff, fs2.getAmount() - 1, false);
+						}
+						return true;
+					} else {
+						BlockState bs2 = world.getBlockState(p2);
+						if (bs2.is(FARMLAND_WATER_WAY)) {
+							next.offer(p2);
+						}
+					}
+				}
+			}
+		}
+		return false;
 	}
 }

@@ -18,7 +18,7 @@ public final class PhysExBootConfig {
 	public static final Path PATH = PhysEx.CFG_DIR.resolve("boot.jsonc");
 	public static final PhysExBootConfig INSTANCE = load();
 
-	private static final int VERSION = 5;
+	private static final int VERSION = 6;
 	private static final String COMMENT = """
 			/*
 			\t+------------------------------------------+
@@ -34,24 +34,24 @@ public final class PhysExBootConfig {
 	@JsonComment("Adds new logic layer for fluids to chunks (may cause stability issues)")
 	private boolean extraFluidLayerEnabled = true;
 
-	@JsonComment("""
-			
-			Describes behavior of "waterlogged" blocks (slabs, fences, trapdoors etc...)
-			values:
-				ALL_OR_NOTHING (default) - Waterlogged state sets only for fully filled blocks
-				FILL_AT_HALF - Waterlogged state sets only for at least half filled blocks
-				FILL_ALWAYS - Waterlogged state sets if any amount of water presents in block
-			""")
-	private WaterlogPolicy waterlogPolicy = WaterlogPolicy.ALL_OR_NOTHING;
+	//@JsonComment("""
+	//
+	//		Describes behavior of "waterlogged" blocks (slabs, fences, trapdoors etc...)
+	//		values:
+	//			ALL_OR_NOTHING (default) - Waterlogged state sets only for fully filled blocks
+	//			FILL_AT_HALF - Waterlogged state sets only for at least half filled blocks
+	//			FILL_ALWAYS - Waterlogged state sets if any amount of water presents in block
+	//		""")
+	//private WaterlogPolicy waterlogPolicy = WaterlogPolicy.ALL_OR_NOTHING;
 
 
 	@JsonComment("Enables the blocks part (WIP)")
-	private boolean blockPhysicsEnabled = true;
+	private boolean blockPhysicsEnabled = false;
 
 	@JsonComment("Makes this mod server side only")
-	private ServerOnlyPolicy serverOnly = ServerOnlyPolicy.DEFAULT;
+	private boolean serverOnly = false;
 
-	@JsonComment("!!! FOR ADVANCED USERS AND MOD MAKERS	!!! The flag that telling placed block to try displace fluid from it (FLAG = 1 << n)")
+	@JsonComment("!!! FOR ADVANCED USERS AND MOD MAKERS	!!! The flag that telling placed block to try to displace fluid from it (FLAG = 1 << n)")
 	private int fluidDisplaceFlagBitOffset = 23;
 
 	@JsonComment("!!! Do not touch !!! (not for humans)")
@@ -59,16 +59,7 @@ public final class PhysExBootConfig {
 	private int configVersion = 0;
 
 	public boolean isExtraFluidLayerEnabled() {
-		return blockPhysicsEnabled && extraFluidLayerEnabled;
-	}
-
-	@Getter
-	public static final class ServerOnlyPolicy {
-		@JsonComment("Actually enables server-only mode")
-		private boolean enabled = false;
-		//private WaterlogPolicy clientWaterlogPolicy = WaterlogPolicy.ALL_OR_NOTHING;
-
-		private static final ServerOnlyPolicy DEFAULT = new ServerOnlyPolicy();
+		return fluidPhysicsEnabled && extraFluidLayerEnabled;
 	}
 
 	public enum WaterlogPolicy {
@@ -83,7 +74,6 @@ public final class PhysExBootConfig {
 				String text = Files.readString(PATH);
 				PhysExBootConfig cfg = SosisonUtils.parseJson(text, PhysExBootConfig.class);
 				Objects.requireNonNull(cfg);
-				Objects.requireNonNull(cfg.serverOnly);
 				if (cfg.fluidDisplaceFlagBitOffset < 10 || cfg.fluidDisplaceFlagBitOffset > 31)
 					throw new IllegalArgumentException("fluidDisplaceFlagBitOffset is out of bounds [10;31]");
 				//Objects.requireNonNull(cfg.serverOnly.clientWaterlogPolicy);

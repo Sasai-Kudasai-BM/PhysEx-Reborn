@@ -7,7 +7,7 @@ public class PXClientMixinPlugin extends PXMixinPlugin {
 
 	@Override
 	public boolean shouldApplyMixin(String target, String mixin) {
-		if (PhysExBootConfig.INSTANCE.getServerOnly().isEnabled()) return false;
+		if (PhysExBootConfig.INSTANCE.isServerOnly()) return false;
 		return super.shouldApplyMixin(target, mixin);
 	}
 }

@@ -7,7 +7,7 @@ import net.skds.physex.PhysExBootConfig;
 public class PhysExClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
-		if (PhysExBootConfig.INSTANCE.getServerOnly().isEnabled()) {
+		if (PhysExBootConfig.INSTANCE.isServerOnly()) {
 			throw new IllegalStateException(PhysEx.MOD_NAME + """
 					 mod was configured for server-only mode but it presents on client side
 					delete it from client or disable server-only mode

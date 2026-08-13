@@ -21,7 +21,7 @@ public class FluidLayerConstants {
 			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "fluid_layer"),
 			FluidLayer::new,
 			CODEC,
-			PhysExBootConfig.INSTANCE.getServerOnly().isEnabled() ? null : STREAM_CODEC,
+			PhysExBootConfig.INSTANCE.isServerOnly() ? null : STREAM_CODEC,
 			FluidLayer::checkForSync,
 			false
 	);
