@@ -27,7 +27,7 @@ public abstract class LiquidBlockLayerMixin extends Block {
 
 	/**
 	 * @author Sasai_kudasai_BM
-	 * @reason new fluid behaviour
+	 * @reason new fluid behavior
 	 */
 	@Overwrite
 	public BlockState updateShape(
@@ -46,7 +46,7 @@ public abstract class LiquidBlockLayerMixin extends Block {
 
 	/// **
 	// * @author Sasai_kudasai_BM
-	// * @reason new fluid behaviour
+	// * @reason new fluid behavior
 	// */
 	//@Overwrite
 	//public void neighborChanged(BlockState blockState, Level level, BlockPos blockPos, Block block, @Nullable Orientation orientation, boolean bl) {

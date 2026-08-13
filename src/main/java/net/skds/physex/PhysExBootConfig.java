@@ -18,7 +18,7 @@ public final class PhysExBootConfig {
 	public static final Path PATH = PhysEx.CFG_DIR.resolve("boot.jsonc");
 	public static final PhysExBootConfig INSTANCE = load();
 
-	private static final int VERSION = 4;
+	private static final int VERSION = 5;
 	private static final String COMMENT = """
 			/*
 			\t+------------------------------------------+
@@ -36,7 +36,7 @@ public final class PhysExBootConfig {
 
 	@JsonComment("""
 			
-			Describes behaviour of "waterlogged" blocks (slabs, fences, trapdoors etc...)
+			Describes behavior of "waterlogged" blocks (slabs, fences, trapdoors etc...)
 			values:
 				ALL_OR_NOTHING (default) - Waterlogged state sets only for fully filled blocks
 				FILL_AT_HALF - Waterlogged state sets only for at least half filled blocks

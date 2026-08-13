@@ -35,7 +35,9 @@ public abstract class PistonMovingBlockEntityLayerMixin extends BlockEntity {
 
 	@Inject(method = "saveAdditional", at = @At("TAIL"))
 	void saveAdditional(ValueOutput valueOutput, CallbackInfo ci) {
-		valueOutput.store("fluidState", FluidState.CODEC, this.movedFluidState);
+		if (this.movedFluidState != null) {
+			valueOutput.store("fluidState", FluidState.CODEC, this.movedFluidState);
+		}
 	}
 
 	@Inject(method = "setLevel", at = @At("TAIL"))

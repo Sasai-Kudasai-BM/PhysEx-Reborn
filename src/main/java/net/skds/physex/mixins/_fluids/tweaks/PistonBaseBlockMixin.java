@@ -24,13 +24,13 @@ public class PistonBaseBlockMixin {
 			target = "Lnet/minecraft/world/level/block/piston/PistonStructureResolver;resolve()Z"
 	)), cancellable = true)
 	void moveBlocks(Level level,
-					BlockPos blockPos,
-					Direction direction,
-					boolean bl,
-					CallbackInfoReturnable<Boolean> cir,
-					@Local(type = PistonStructureResolver.class) PistonStructureResolver pistonStructureResolver
+	                BlockPos blockPos,
+	                Direction direction,
+	                boolean bl,
+	                CallbackInfoReturnable<Boolean> cir,
+	                @Local(type = PistonStructureResolver.class) PistonStructureResolver pistonStructureResolver
 	) {
-		if (bl && !level.isClientSide() && !FluidUtils.pistonHook((ServerLevel) level, pistonStructureResolver, blockPos, direction)) {
+		if (!level.isClientSide() && !FluidUtils.pistonHook((ServerLevel) level, pistonStructureResolver, blockPos, direction)) {
 			cir.setReturnValue(false);
 		}
 	}

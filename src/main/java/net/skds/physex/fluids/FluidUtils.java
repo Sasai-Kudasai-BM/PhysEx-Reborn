@@ -3,7 +3,9 @@ package net.skds.physex.fluids;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import lombok.experimental.UtilityClass;
+import net.fabricmc.fabric.api.registry.FlammableBlockRegistry;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
@@ -19,8 +21,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.FireBlock;
 import net.minecraft.world.level.block.LiquidBlockContainer;
 import net.minecraft.world.level.block.piston.PistonStructureResolver;
 import net.minecraft.world.level.block.state.BlockState;
@@ -42,7 +42,6 @@ import net.skds.physex.PhysExGameRules;
 import net.skds.physex.fluids.layer.FluidLayer;
 
 import java.util.ArrayDeque;
-import java.util.List;
 import java.util.function.BiFunction;
 
 @UtilityClass
@@ -161,10 +160,16 @@ public class FluidUtils {
 		return FastMath.RANDOM.nextBoolean() ? cx : cz;
 	}
 
-	public static boolean pistonHook(ServerLevel world, PistonStructureResolver pistonStructureResolver, BlockPos blockPos, Direction direction) {
-		List<BlockPos> destroys = pistonStructureResolver.getToDestroy();
+	public static boolean pistonHook(ServerLevel world, PistonStructureResolver pistonStructureResolver, BlockPos blockPos, Direction pistonDirection) {
+		ObjectOpenHashSet<BlockPos> blacklist = new ObjectOpenHashSet<>(8, .5f);
+		Direction pushDirection = pistonStructureResolver.getPushDirection();
+		for (BlockPos pos : pistonStructureResolver.getToPush()) {
+			blacklist.add(pos);
+			blacklist.add(pos.relative(pushDirection));
+		}
 		Object2ObjectOpenHashMap<BlockPos, FluidState> displaceStates = new Object2ObjectOpenHashMap<>(8, .5f);
-		for (BlockPos pos : destroys) {
+		for (BlockPos pos : pistonStructureResolver.getToDestroy()) {
+			blacklist.add(pos);
 			FluidState fs = world.getFluidState(pos);
 			if (!fs.isEmpty() && fs.getType() instanceof FlowingFluid) {
 				displaceStates.put(pos, fs);
@@ -173,6 +178,7 @@ public class FluidUtils {
 		if (displaceStates.isEmpty()) return true;
 		Object2ObjectOpenHashMap<BlockPos, FluidState> positions = new Object2ObjectOpenHashMap<>(displaceStates.size() * 2, .5f);
 		BiFunction<Level, BlockPos, FluidState> filter = (w, bp) -> {
+			if (blacklist.contains(bp)) return null;
 			FluidState fs = positions.get(bp);
 			if (fs == null) {
 				return w.getFluidState(bp);
@@ -182,10 +188,10 @@ public class FluidUtils {
 		for (var e : displaceStates.entrySet()) {
 			FluidState fs = e.getValue();
 			FlowingFluid fluid = (FlowingFluid) fs.getType();
-			FreeFluidSpace space = findSpaceForFluidAround(world, e.getKey(), fluid, fs.getAmount(), filter);
+			FluidDistribution space = findSpaceForFluidAround(world, e.getKey(), fluid, fs.getAmount(), filter);
 			if (!space.isEmpty()) {
-				if (space.remaining() > 0) return false;
-				for (var e2 : space.positions().object2IntEntrySet()) {
+				if (space.remainingFluid() > 0) return false;
+				for (var e2 : space.occupied().object2IntEntrySet()) {
 					FluidState fs2 = getFluidState(fluid, e2.getIntValue(), false);
 					positions.put(e2.getKey(), fs2);
 				}
@@ -385,8 +391,7 @@ public class FluidUtils {
 
 	public static boolean isFlammable(BlockState blockState) {
 		if (blockState.ignitedByLava() || blockState.is(FLAMMABLE_TAG)) return true;
-		FireBlock fireBlock = (FireBlock) Blocks.FIRE;
-		return fireBlock.burnOdds.containsKey(blockState.getBlock());
+		return FlammableBlockRegistry.getDefaultInstance().get(blockState.getBlock()).getBurnChance() > 0;
 	}
 
 	public static boolean canHandleFluid(BlockState blockState, FlowingFluid fluid) {
@@ -424,55 +429,52 @@ public class FluidUtils {
 	}
 
 	public static boolean checkFlagsForDisplace(int flags) {
-		if ((flags & DISPLACE_FLAG) != 0) return true;
+		if ((flags & DISPLACE_FLAG) != 0 || (flags & Block.UPDATE_MOVE_BY_PISTON) != 0) return true;
 		return (flags & Block.UPDATE_IMMEDIATE) != 0 && (flags & Block.UPDATE_NEIGHBORS) != 0;
 	}
 
-	public static void placeFluid(ServerLevel world, FlowingFluid fluid, FreeFluidSpace space) {
-		for (var e : space.positions().object2IntEntrySet()) {
+	public static void placeFluid(ServerLevel world, FlowingFluid fluid, FluidDistribution distribution) {
+		for (var e : distribution.occupied().object2IntEntrySet()) {
 			setFluid(world, e.getKey(), fluid, e.getIntValue(), false);
 		}
 	}
 
-	public static FreeFluidSpace findSpaceForFluid(ServerLevel world,
-												   BlockPos to,
-												   FlowingFluid fluid,
-												   int amount,
-												   BiFunction<Level, BlockPos, FluidState> fsGetter
+	public static FluidDistribution findSpaceForFluid(ServerLevel world,
+	                                                  BlockPos to,
+	                                                  FlowingFluid fluid,
+	                                                  int amount,
+	                                                  BiFunction<Level, BlockPos, FluidState> fsGetter
 	) {
-		if (amount < 1 || fluid == Fluids.EMPTY) return FreeFluidSpace.EMPTY;
+		if (amount < 1 || fluid == Fluids.EMPTY) return FluidDistribution.EMPTY;
 
-		int toPut0 = 0;
-		BlockPos to0 = null;
+		int occupied0 = 0;
 		FluidState fs2 = fsGetter.apply(world, to);
 		if (fs2 != null) {
 			boolean same = fs2.getType().isSame(fluid);
-			if (same || fs2.isEmpty()) {
+			if (same || fs2.isEmpty() || fs2.canBeReplacedWith(world, to, fluid, null)) {
 				int fsl = same ? fs2.getAmount() : 0;
 				int capacity = MAX_LEVEL - fsl;
 				int toPut = Math.min(amount, capacity);
 				if (toPut > 0) {
 					amount -= toPut;
-					toPut0 = toPut;
-					to0 = to;
+					occupied0 = fsl + toPut;
 				}
 			}
 		}
-		if (amount > 0) {
-			FreeFluidSpace ffs = findSpaceForFluidAround(world, to, fluid, amount, fsGetter);
-			if (!ffs.isEmpty()) {
-				ffs.positions().put(to0, toPut0);
-				return ffs;
-			}
+		FluidDistribution ffs = findSpaceForFluidAround(world, to, fluid, amount, fsGetter);
+		if (!ffs.isEmpty()) {
+			ffs.occupied().put(to, occupied0);
+			return ffs;
 		}
-		return FreeFluidSpace.single(to0, toPut0, amount);
+
+		return FluidDistribution.single(to, occupied0, amount);
 	}
 
-	public static FreeFluidSpace findSpaceForFluidAround(ServerLevel world,
-														 BlockPos to,
-														 FlowingFluid fluid,
-														 int amount,
-														 BiFunction<Level, BlockPos, FluidState> fsGetter
+	public static FluidDistribution findSpaceForFluidAround(ServerLevel world,
+	                                                        BlockPos to,
+	                                                        FlowingFluid fluid,
+	                                                        int amount,
+	                                                        BiFunction<Level, BlockPos, FluidState> fsGetter
 	) {
 		LongOpenHashSet visited = new LongOpenHashSet(amount * 6, 0.5f);
 		ArrayDeque<BlockPos> queue = new ArrayDeque<>(amount * 6);
@@ -504,48 +506,19 @@ public class FluidUtils {
 					int toPut = Math.min(amount, capacity);
 					if (toPut > 0) {
 						amount -= toPut;
-						map.put(p2, toPut);
+						map.put(p2, fsl + toPut);
 					}
 					if (amount > 0) queue.add(p2);
 				}
 			}
 		}
-		return new FreeFluidSpace(map, amount);
+		return new FluidDistribution(map, amount);
 	}
 
 	public static int placeFluidAround(ServerLevel world, BlockPos to, FlowingFluid fluid, int amount) {
-		LongOpenHashSet visited = new LongOpenHashSet(amount * 6, 0.5f);
-		ArrayDeque<BlockPos> queue = new ArrayDeque<>(amount * 6);
-		visited.add(to.asLong());
-		queue.offer(to);
-		BlockPos next;
-		int limit = 128;
-		int i = 0;
-		while ((next = queue.poll()) != null) {
-			if (i++ > limit) break;
-			for (Direction dir : randomAllPriority()) {
-				BlockPos p2 = next.relative(dir);
-				long lp = p2.asLong();
-				if (visited.contains(lp)) continue;
-				BlockState state2 = world.getBlockState(p2);
-				VoxelShape shape2 = state2.getCollisionShape(world, p2);
-				if (to == next ? !isPathBlocked(null, Shapes.empty(), state2, shape2, dir) : !isPathBlocked(world, next, p2, state2, shape2)) {
-					visited.add(lp);
-					FluidState fs2 = world.getFluidState(p2);
-					boolean same = fs2.getType().isSame(fluid);
-					if (!same && !fs2.isEmpty() && !fs2.canBeReplacedWith(world, p2, fluid, dir)) continue;
-					int fsl = same ? fs2.getAmount() : 0;
-					int capacity = MAX_LEVEL - fsl;
-					int toPut = Math.min(amount, capacity);
-					if (toPut > 0) {
-						amount -= toPut;
-						setFluid(world, p2, state2, fs2, fluid, toPut + fsl, false, false);
-					}
-					if (amount > 0) queue.add(p2);
-				}
-			}
-		}
-		return amount;
+		FluidDistribution distribution = findSpaceForFluidAround(world, to, fluid, amount, FS_GETTER);
+		placeFluid(world, fluid, distribution);
+		return distribution.remainingFluid();
 	}
 
 	public static void displaceHook(ServerLevel world, BlockPos to, BlockState oldState, BlockState newState, FluidState newFs, FluidState correctFs, int flags) {
@@ -557,9 +530,7 @@ public class FluidUtils {
 				setFluidState(world, to, newState, newFs, correctFs);
 			} else {
 				int rem = placeFluidAround(world, to, fluid, correctFs.getAmount());
-				if (rem > 0) {
-					setFluid(world, to, fluid, rem, false);
-				}
+				setFluid(world, to, fluid, rem, false);
 			}
 		}
 	}
