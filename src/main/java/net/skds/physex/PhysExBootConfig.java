@@ -18,7 +18,7 @@ public final class PhysExBootConfig {
 	public static final Path PATH = PhysEx.CFG_DIR.resolve("boot.jsonc");
 	public static final PhysExBootConfig INSTANCE = load();
 
-	private static final int VERSION = 6;
+	private static final int VERSION = 1;
 	private static final String COMMENT = """
 			/*
 			\t+------------------------------------------+
@@ -31,7 +31,12 @@ public final class PhysExBootConfig {
 	@JsonComment("Enables the fluids part")
 	private boolean fluidPhysicsEnabled = true;
 
-	@JsonComment("Adds new logic layer for fluids to chunks (may cause stability issues)")
+	@JsonComment("""
+			
+				Adds new logic fluids layer to chunks (may cause stability issues)
+				Allows variety of hollow blocks to be filled with fluids
+				f.e. doors, anvils, chests, grass, fences
+			""")
 	private boolean extraFluidLayerEnabled = true;
 
 	//@JsonComment("""
@@ -46,7 +51,7 @@ public final class PhysExBootConfig {
 
 
 	@JsonComment("Enables the blocks part (WIP)")
-	private boolean blockPhysicsEnabled = false;
+	private transient boolean blockPhysicsEnabled = false;
 
 	@JsonComment("Makes this mod server side only")
 	private boolean serverOnly = false;

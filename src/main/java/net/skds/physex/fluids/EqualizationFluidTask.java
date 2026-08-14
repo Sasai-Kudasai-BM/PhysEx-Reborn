@@ -2,7 +2,7 @@ package net.skds.physex.fluids;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashBigSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -15,15 +15,12 @@ import java.util.Comparator;
 
 public class EqualizationFluidTask extends AbstractFluidTask {
 
-	//private static final Object2IntMap.Entry<BlockPos>[] DUMMY_ARRAY = (Object2IntMap.Entry<BlockPos>[]) new Object2IntMap.Entry[0];
 	private static final Comparator<Object2IntMap.Entry<BlockPos>> COMP =
 			(e1, e2) -> Integer.compare(e2.getIntValue(), e1.getIntValue());
-
 
 	public EqualizationFluidTask(BlockPos pos, FlowingFluid fluid, ServerLevel world) {
 		super(pos, fluid, world);
 	}
-
 
 	@Override
 	public void run() {
@@ -44,8 +41,8 @@ public class EqualizationFluidTask extends AbstractFluidTask {
 		int steps = FastMath.clamp(FluidUtils.getSlopeDistance(fluid, world) * 4, 2, 20);
 
 		Object2IntOpenHashMap<BlockPos> fluids = new Object2IntOpenHashMap<>(32, 0.5f);
-		ObjectOpenHashBigSet<BlockPos> newPoses = new ObjectOpenHashBigSet<>(32, 0.5f);
-		ObjectOpenHashBigSet<BlockPos> nextNewPoses = new ObjectOpenHashBigSet<>(32, 0.5f);
+		ObjectOpenHashSet<BlockPos> newPoses = new ObjectOpenHashSet<>(32, 0.5f);
+		ObjectOpenHashSet<BlockPos> nextNewPoses = new ObjectOpenHashSet<>(32, 0.5f);
 		newPoses.add(pos);
 		fluids.put(pos, amount);
 
@@ -58,7 +55,7 @@ public class EqualizationFluidTask extends AbstractFluidTask {
 				for (Direction dir : randDirs) {
 					BlockPos p2 = p.relative(dir);
 					if (!fluids.containsKey(p2)) {
-						if (havePath(p, dir)) {
+						if (havePath(p, dir, true)) {
 							int q = getFluidQuantity(p2);
 							amount += q;
 							if (py < y) {
@@ -93,7 +90,7 @@ public class EqualizationFluidTask extends AbstractFluidTask {
 				if (walls && py == y) {
 					BlockPos p2 = p.below();
 					if (!fluids.containsKey(p2)) {
-						if (havePath(p, Direction.DOWN)) {
+						if (havePath(p, Direction.DOWN, true)) {
 							int q = getFluidQuantity(p2);
 							amount += q;
 							if (hitEmpty) {

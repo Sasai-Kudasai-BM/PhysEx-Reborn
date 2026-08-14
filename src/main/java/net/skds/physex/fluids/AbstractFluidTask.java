@@ -28,7 +28,7 @@ public abstract class AbstractFluidTask implements Runnable {
 		this.randDirs = FluidUtils.randomHorizontal();
 		this.fluidTicks = CustomFluidTicks.get(world);
 	}
-	
+
 	protected final boolean isThis(FluidState fs) {
 		return fs.getType().isSame(fluid);
 	}
@@ -48,15 +48,18 @@ public abstract class AbstractFluidTask implements Runnable {
 		return 0;
 	}
 
-	protected final boolean havePath(BlockPos from, Direction dir) {
+	protected final boolean havePath(BlockPos from, Direction dir, boolean wlCare) {
 		BlockState fromState = getBlockState(from);
 		VoxelShape fromShape = fromState.getCollisionShape(world, from);
-		return havePath(from, fromState, fromShape, dir);
+		return havePath(from, fromState, fromShape, dir, wlCare);
 	}
 
-	protected final boolean havePath(BlockPos from, BlockState fromState, VoxelShape fromShape, Direction dir) {
+	protected final boolean havePath(BlockPos from, BlockState fromState, VoxelShape fromShape, Direction dir, boolean wlCare) {
 		BlockPos to = from.relative(dir);
 		BlockState toState = getBlockState(to);
+		if (wlCare && (FluidUtils.checkForWLLimit(fromState, this.fluid) || FluidUtils.checkForWLLimit(toState, this.fluid))) {
+			return false;
+		}
 		VoxelShape toShape = toState.getCollisionShape(world, to);
 		if (FluidUtils.isPathBlocked(fromState, fromShape, toState, toShape, dir)) {
 			if (!toState.canBeReplaced(fluid)) {

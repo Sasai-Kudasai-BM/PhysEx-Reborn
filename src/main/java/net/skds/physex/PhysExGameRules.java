@@ -19,7 +19,7 @@ public class PhysExGameRules {
 			createFluidGamerule("WaterHotFluidEvaporation", GameRuleFactory.createIntRule(2, 0, 8));
 
 	public static final GameRules.Key<GameRules.IntegerValue> FARMLAND_WATER_INTAKE =
-			createFluidGamerule("FarmlandWaterIntake", GameRuleFactory.createIntRule(10, 0, 1000));
+			createFluidGamerule("FarmlandWaterIntake", GameRuleFactory.createIntRule(10, -1, 1000));
 
 	private static <T extends GameRules.Value<T>> GameRules.Key<T> createFluidGamerule(String id, GameRules.Type<T> type) {
 		if (!PhysExBootConfig.INSTANCE.isFluidPhysicsEnabled()) return null;

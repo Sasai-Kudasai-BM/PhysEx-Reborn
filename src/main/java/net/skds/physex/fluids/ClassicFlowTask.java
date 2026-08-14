@@ -17,6 +17,7 @@ public class ClassicFlowTask extends AbstractFluidTask {
 	private final FluidState initialFluidState;
 	private final VoxelShape shape;
 	private final int[] dirPotential = new int[DIR_LEN];
+	private final boolean wlLimited;
 
 	private int level;
 
@@ -25,6 +26,7 @@ public class ClassicFlowTask extends AbstractFluidTask {
 		this.initialFluidState = fs;
 		this.state = bs;
 		this.shape = this.state.getShape(world, pos);
+		this.wlLimited = FluidUtils.checkForWLLimit(bs, fluid);
 		this.level = this.initialFluidState.getAmount();
 	}
 
@@ -38,13 +40,24 @@ public class ClassicFlowTask extends AbstractFluidTask {
 		boolean moved = false;
 		int delta = canFlow(Direction.DOWN);
 		if (delta > 0) {
-			if (this.level == delta && delta > 1) {
-				delta--;
+			if (!FluidUtils.FLUID_CHUNK_LAYER) {
+				BlockPos to = this.pos.below();
+				BlockState toState = world.getBlockState(to);
+				if (wlLimited || FluidUtils.checkForWLLimit(toState, this.fluid)) {
+					if (delta != FluidUtils.MAX_LEVEL) return;
+				} else if (this.level == delta && delta > 1) {
+					delta--;
+				}
+				flow(pos, state, toState, to, Direction.DOWN, delta);
+			} else {
+				if (this.level == delta && delta > 1) {
+					delta--;
+				}
+				flow(Direction.DOWN, delta);
 			}
-			flow(Direction.DOWN, delta);
 			moved = true;
 		}
-		if (this.level == 0) return;
+		if (this.level == 0 || wlLimited) return;
 		int n = 0;
 		for (int i = 0; i < DIR_LEN; i++) {
 			Direction dir = randDirs[i];
@@ -100,26 +113,26 @@ public class ClassicFlowTask extends AbstractFluidTask {
 	}
 
 	private void flow(Direction dir, int amount) {
-		flow(pos, state, pos.relative(dir), dir, amount);
+		BlockPos to = pos.relative(dir);
+		flow(pos, state, getBlockState(to), to, dir, amount);
 	}
 
-	private void flow(BlockPos from, BlockState fromState, BlockPos to, Direction dir, int amount) {
+	private void flow(BlockPos from, BlockState fromState, BlockState toState, BlockPos to, Direction dir, int amount) {
 		FluidState toFs = getFluidState(to);
 		this.level -= amount;
 		setFluid(from, fromState, getFluidState(from), this.level, dir == Direction.DOWN);
 
 		if (isThis(toFs)) {
 			int toLevel = toFs.getAmount() + amount;
-			setFluid(to, getBlockState(to), toFs, toLevel, dir == Direction.DOWN);
+			setFluid(to, toState, toFs, toLevel, dir == Direction.DOWN);
 		} else if (toFs.isEmpty() || canReplace(toFs, to, dir)) {
-			setFluid(to, getBlockState(to), toFs, amount, dir == Direction.DOWN);
+			setFluid(to, toState, toFs, amount, dir == Direction.DOWN);
 		} else {
 			PhysEx.LOGGER.warn("Impossible " + to);
 		}
 	}
 
 	private boolean slopeFlow(Vec2F slope) {
-
 		Direction dir = FluidUtils.getDirection(slope.xf(), slope.yf());
 		if (dir == null) return false;
 		int delta = canFlow(dir);
@@ -134,7 +147,7 @@ public class ClassicFlowTask extends AbstractFluidTask {
 	}
 
 	private void equalize() {
-		if (level < 2 && !havePath(pos, state, shape, Direction.DOWN)) return;
+		if (level < 2 && !havePath(pos, state, shape, Direction.DOWN, false)) return;
 		fluidTicks.scheduleEqualization(pos, fluid, world);
 	}
 
@@ -146,6 +159,9 @@ public class ClassicFlowTask extends AbstractFluidTask {
 	private int canFlow(BlockPos from, BlockState fromState, VoxelShape fromShape, Direction dir, boolean fromAbove) {
 		BlockPos to = from.relative(dir);
 		BlockState toState = getBlockState(to);
+		if (!fromAbove && FluidUtils.checkForWLLimit(toState, this.fluid)) {
+			return 0;
+		}
 		VoxelShape toShape = toState.getCollisionShape(world, to);
 		if (FluidUtils.isPathBlocked(fromState, fromShape, toState, toShape, dir)) {
 			if (!toState.canBeReplaced(fluid)) {

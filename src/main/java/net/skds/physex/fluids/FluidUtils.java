@@ -22,6 +22,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.LiquidBlockContainer;
 import net.minecraft.world.level.block.piston.PistonStructureResolver;
 import net.minecraft.world.level.block.state.BlockState;
@@ -415,7 +416,7 @@ public class FluidUtils {
 		if (oldState.isAir() || isLiquid(oldState)) return fluidState.createLegacyBlock();
 		if (fluidState.isEmpty()) {
 			if (oldState.getFluidState().isEmpty()) return oldState;
-			if (fluidState.getType().isSame(Fluids.WATER) && oldState.hasProperty(BlockStateProperties.WATERLOGGED)) {
+			if (oldState.hasProperty(BlockStateProperties.WATERLOGGED)) {
 				return oldState.setValue(BlockStateProperties.WATERLOGGED, false);
 			}
 		}
@@ -452,7 +453,6 @@ public class FluidUtils {
 	                                                  BiFunction<Level, BlockPos, FluidState> fsGetter
 	) {
 		if (amount < 1 || fluid == Fluids.EMPTY) return FluidDistribution.EMPTY;
-
 		int occupied0 = 0;
 		FluidState fs2 = fsGetter.apply(world, to);
 		if (fs2 != null) {
@@ -461,6 +461,9 @@ public class FluidUtils {
 				int fsl = same ? fs2.getAmount() : 0;
 				int capacity = MAX_LEVEL - fsl;
 				int toPut = Math.min(amount, capacity);
+				if (!FLUID_CHUNK_LAYER && toPut != 0 && toPut != MAX_LEVEL && checkForWLLimit(world.getBlockState(to), fluid)) {
+					toPut = 0;
+				}
 				if (toPut > 0) {
 					amount -= toPut;
 				}
@@ -510,6 +513,9 @@ public class FluidUtils {
 					int fsl = same ? fs2.getAmount() : 0;
 					int capacity = MAX_LEVEL - fsl;
 					int toPut = Math.min(amount, capacity);
+					if (!FLUID_CHUNK_LAYER && toPut != 0 && toPut != MAX_LEVEL && checkForWLLimit(state2, fluid)) {
+						toPut = 0;
+					}
 					if (toPut > 0) {
 						amount -= toPut;
 						map.put(p2, fsl + toPut);
@@ -674,6 +680,14 @@ public class FluidUtils {
 					}
 				}
 			}
+		}
+		return false;
+	}
+
+	static boolean checkForWLLimit(BlockState blockState, Fluid fluid) {
+		if (FLUID_CHUNK_LAYER) return false;
+		if (fluid.isSame(Fluids.WATER) && blockState.hasProperty(BlockStateProperties.WATERLOGGED)) {
+			return !blockState.hasProperty(LiquidBlock.LEVEL);
 		}
 		return false;
 	}
