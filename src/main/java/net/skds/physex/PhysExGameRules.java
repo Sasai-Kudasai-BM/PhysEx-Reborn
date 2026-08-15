@@ -7,7 +7,7 @@ import net.minecraft.world.level.GameRules;
 public class PhysExGameRules {
 
 	public static final GameRules.Key<GameRules.IntegerValue> TASK_LIMIT =
-			createFluidGamerule("TaskLimit", GameRuleFactory.createIntRule(5000, 100));
+			createFluidGamerule("TaskLimit", GameRuleFactory.createIntRule(10000, 500));
 
 	public static final GameRules.Key<GameRules.BooleanValue> DRIPSTONE_FILL_CAULDRON =
 			createFluidGamerule("DripstoneFillCauldron", GameRuleFactory.createBooleanRule(false));
