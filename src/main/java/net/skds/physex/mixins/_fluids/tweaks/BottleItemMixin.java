@@ -30,9 +30,9 @@ public abstract class BottleItemMixin extends Item {
 			ordinal = 0
 	))
 	public boolean use(FluidState fs,
-					   TagKey<Fluid> tagKey,
-					   @Local(argsOnly = true, type = Level.class) Level level,
-					   @Local(type = BlockPos.class, name = "blockPos") BlockPos pos
+	                   TagKey<Fluid> tagKey,
+	                   @Local(argsOnly = true, type = Level.class) Level level,
+	                   @Local(type = BlockPos.class, ordinal = 0) BlockPos pos
 	) {
 		if (fs.is(tagKey)) {
 			int amount = fs.getAmount();

@@ -1,12 +1,10 @@
 package net.skds.physex.mixins._fluids._layer;
 
-import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.material.FluidState;
 import net.skds.physex.fluids.CustomFluidTicks;
 import net.skds.physex.fluids.FluidUtils;
@@ -30,11 +28,9 @@ public class WorldChunkFluidMixin {
 			ordinal = 0
 	))
 	void setBlockState(BlockPos blockPos,
-					   BlockState blockState,
-					   int flags,
-					   CallbackInfoReturnable<BlockState> cir,
-					   @Local(name = "blockState2", type = BlockState.class) BlockState oldState,
-					   @Local(name = "levelChunkSection", type = LevelChunkSection.class) LevelChunkSection section
+	                   BlockState blockState,
+	                   int flags,
+	                   CallbackInfoReturnable<BlockState> cir
 	) {
 		if (!level.isClientSide() && (flags & Block.UPDATE_MOVE_BY_PISTON) == 0 && !FluidUtils.isFluidStateOverrided(blockState)) {
 			LevelChunk _this = (LevelChunk) (Object) this;

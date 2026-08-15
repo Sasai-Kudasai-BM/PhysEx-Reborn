@@ -1,9 +1,10 @@
 package net.skds.physex.fluids;
 
-import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.profiling.Profiler;
@@ -17,7 +18,6 @@ import net.skds.physex.PhysExGameRules;
 import net.skds.physex.fluids.layer.FluidLayer;
 
 import java.util.ArrayDeque;
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.LongPredicate;
@@ -25,16 +25,18 @@ import java.util.function.LongPredicate;
 public class CustomFluidTicks extends LevelTicks<Fluid> {
 
 	private final ArrayDeque<EqualizationFluidTask> equalizationQueue = new ArrayDeque<>();
-	private final HashSet<BlockPos> equalizationSet = new HashSet<>(256, .5f);
+	private final ObjectOpenHashSet<BlockPos> equalizationSet = new ObjectOpenHashSet<>(256, .5f);
 	private final ServerLevel world;
-	private final HashSet<ChunkAccess> updatedFluidOverrides = new HashSet<>(64, .5f);
+	private final ObjectOpenHashSet<ChunkAccess> updatedFluidOverrides = new ObjectOpenHashSet<>(64, .5f);
 
-	private final Long2LongOpenHashMap equalizationBlacklistSet = new Long2LongOpenHashMap(512, .5f);
-	private final Long2ObjectOpenHashMap<LongOpenHashSet> equalizationBlacklistMap = new Long2ObjectOpenHashMap<>(16, .5f);
+	private final Long2IntOpenHashMap equalizationBlacklistSet = new Long2IntOpenHashMap(512, .5f);
+	private final Int2ObjectOpenHashMap<LongOpenHashSet> equalizationBlacklistMap = new Int2ObjectOpenHashMap<>(16, .5f);
 
 	private long taskCounter;
 	private long blockReadCounter;
 	private long blockUpdateCounter;
+
+	private int tickNumber;
 
 	public CustomFluidTicks(LongPredicate chunkPredicate, ServerLevel world) {
 		super(chunkPredicate);
@@ -71,8 +73,8 @@ public class CustomFluidTicks extends LevelTicks<Fluid> {
 		tickDelay--;
 		if (tickDelay < 1) return;
 		long p = pos.asLong();
-		long t = world.getGameTime() + tickDelay;
-		long oldT = equalizationBlacklistSet.getOrDefault(p, -1);
+		int t = tickNumber + tickDelay;
+		int oldT = equalizationBlacklistSet.getOrDefault(p, -1);
 		if (oldT < t) {
 			equalizationBlacklistSet.put(p, t);
 			var set = equalizationBlacklistMap.computeIfAbsent(t, ignored -> new LongOpenHashSet(256, .5f));
@@ -103,17 +105,24 @@ public class CustomFluidTicks extends LevelTicks<Fluid> {
 		super.tick(time, getTaskLimit(), biConsumer);
 		ProfilerFiller profiler = Profiler.get();
 
-		int eqLim = getTaskLimit() / 8;
+		int eqLim = getTaskLimit() / 100;
+		if (eqLim < 1) eqLim = 1;
 		long equalizationTaskCounter = 0;
 		//if (taskCounter > 0)
 		//	System.out.printf("t:%s \te:%s \tr:%s \tu:%s\n", taskCounter, equalizationSet.size(), blockReadCounter, blockUpdateCounter);
 
 		profiler.push("fluid equalization");
 		EqualizationFluidTask task;
+		EqualizationFluidTask bt = equalizationQueue.peekLast();
 		while (equalizationTaskCounter < eqLim && (task = equalizationQueue.pollFirst()) != null) {
-			if (equalizationSet.remove(task.pos) && !equalizationBlacklistSet.containsKey(task.pos.asLong())) {
-				task.run();
-				equalizationTaskCounter++;
+			if (bt == task) {
+				bt = null;
+			}
+			if (equalizationSet.remove(task.pos)) {
+				if (!equalizationBlacklistSet.containsKey(task.pos.asLong())) {
+					task.run();
+					equalizationTaskCounter++;
+				}
 			}
 		}
 		if (FluidUtils.FLUID_CHUNK_LAYER && !updatedFluidOverrides.isEmpty()) {
@@ -124,17 +133,16 @@ public class CustomFluidTicks extends LevelTicks<Fluid> {
 			updatedFluidOverrides.clear();
 		}
 		profiler.pop();
-		//equalizationSet.clear();
-		//equalizationQueue.clear();
 
-		//equalizationBlacklistSet.clear();
-		long t = world.getGameTime();
-		var set = equalizationBlacklistMap.remove(t);
+		var set = equalizationBlacklistMap.remove(tickNumber);
 		if (set != null) {
 			LongIterator itr = set.iterator();
 			while (itr.hasNext()) {
 				equalizationBlacklistSet.remove(itr.nextLong());
 			}
+		}
+		if (bt == null) {
+			tickNumber++;
 		}
 	}
 }

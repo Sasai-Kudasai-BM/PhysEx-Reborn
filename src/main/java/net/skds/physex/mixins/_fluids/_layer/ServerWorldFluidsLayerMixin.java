@@ -30,11 +30,11 @@ public abstract class ServerWorldFluidsLayerMixin extends Level {
 			target = "Lnet/minecraft/world/level/block/state/BlockState;getFluidState()Lnet/minecraft/world/level/material/FluidState;"
 	))
 	FluidState tickChunk(BlockState instance,
-						 @Local(argsOnly = true, type = LevelChunk.class) LevelChunk chunk,
-						 @Local(name = "blockPos", type = BlockPos.class) BlockPos pos,
-						 @Local(name = "j", type = int.class) int x,
-						 @Local(name = "o", type = int.class) int y,
-						 @Local(name = "k", type = int.class) int z
+	                     @Local(argsOnly = true, type = LevelChunk.class) LevelChunk chunk,
+	                     @Local(ordinal = 0, type = BlockPos.class) BlockPos pos,
+	                     @Local(ordinal = 1, type = int.class) int x,
+	                     @Local(ordinal = 2, type = int.class) int y,
+	                     @Local(ordinal = 5, type = int.class) int z
 
 	) {
 		return chunk.getFluidState(pos.getX() + x, pos.getY() + y, pos.getZ() + z);

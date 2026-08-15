@@ -32,7 +32,7 @@ public abstract class BoatMixin extends VehicleEntity {
 	}
 
 	@Redirect(method = "checkInWater", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Mth;ceil(D)I", ordinal = 1))
-	int checkInWater(double d, @Local(type = AABB.class, name = "aABB") AABB aABB) {
+	int checkInWater(double d, @Local(type = AABB.class, ordinal = 0) AABB aABB) {
 		return Mth.ceil(aABB.maxY + 0.001);
 	}
 
