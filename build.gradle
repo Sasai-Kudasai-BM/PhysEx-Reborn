@@ -1,5 +1,6 @@
 plugins {
 	id 'fabric-loom' version "${loom_version}"
+	id 'com.gradleup.shadow' version '9.2.2'
 }
 
 version = project.mod_version
@@ -9,7 +10,11 @@ base {
 	archivesName = project.archives_base_name
 }
 
-repositories {
+configurations {
+	libs
+
+	compileClasspath.extendsFrom libs
+	runtimeClasspath.extendsFrom libs
 }
 
 loom {
@@ -48,8 +53,9 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	implementation project(':skdslib')
-	include project(':skdslib')
+	//implementation project(':skdslib')
+	//include project(':skdslib')
+	libs(project(':skdslib'))
 }
 
 processResources {
@@ -58,6 +64,18 @@ processResources {
 	filesMatching("fabric.mod.json") {
 		expand "version": project.version
 	}
+}
+
+shadowJar {
+	configurations = [project.configurations.libs]
+	archiveClassifier = 'dev-shadow'
+	minimize()
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+remapJar {
+	dependsOn shadowJar
+	inputFile.set(shadowJar.archiveFile)
 }
 
 project(":skdslib") {

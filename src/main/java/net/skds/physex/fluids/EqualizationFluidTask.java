@@ -13,7 +13,7 @@ import net.skds.lib2.utils.ArrayUtils;
 import java.util.Arrays;
 import java.util.Comparator;
 
-public class EqualizationFluidTask extends AbstractFluidTask {
+public final class EqualizationFluidTask extends AbstractFluidTask {
 
 	private static final Comparator<Object2IntMap.Entry<BlockPos>> COMP =
 			(e1, e2) -> Integer.compare(e2.getIntValue(), e1.getIntValue());

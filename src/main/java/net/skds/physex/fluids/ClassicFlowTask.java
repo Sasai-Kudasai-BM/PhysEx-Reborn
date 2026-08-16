@@ -11,7 +11,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.skds.lib2.mat.vec2.Vec2F;
 import net.skds.physex.PhysEx;
 
-public class ClassicFlowTask extends AbstractFluidTask {
+public final class ClassicFlowTask extends AbstractFluidTask {
 
 	private final BlockState state;
 	private final FluidState initialFluidState;

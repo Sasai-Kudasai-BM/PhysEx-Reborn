@@ -10,7 +10,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 
-public abstract class AbstractFluidTask implements Runnable {
+public abstract sealed class AbstractFluidTask implements Runnable permits ClassicFlowTask, EqualizationFluidTask {
 
 	protected static final int MAX_LEVEL = FluidUtils.MAX_LEVEL;
 	protected static final int DIR_LEN = 4;// DIRECTIONS.length;
