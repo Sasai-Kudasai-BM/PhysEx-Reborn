@@ -4,6 +4,7 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.skds.lib2.utils.logger.SKDSLogger;
 import net.skds.physex.fluids.FluidDebugCommand;
+import net.skds.physex.fluids.PhysExFluidItems;
 import net.skds.physex.fluids.VanillaFluidTweaks;
 import net.skds.physex.fluids.layer.FluidLayer;
 
@@ -26,10 +27,16 @@ public class PhysEx implements ModInitializer {
 				FluidLayer.init();
 			}
 		}
-
+		if (fluidItemsEnabled()) {
+			PhysExFluidItems.init();
+		}
 		CommandRegistrationCallback.EVENT.register(
 				(dispatcher, ignored, ignored1) ->
 						FluidDebugCommand.create(dispatcher)
 		);
+	}
+
+	public static boolean fluidItemsEnabled() {
+		return PhysExBootConfig.INSTANCE.isFluidPhysicsEnabled() && !PhysExBootConfig.INSTANCE.isServerOnly();
 	}
 }

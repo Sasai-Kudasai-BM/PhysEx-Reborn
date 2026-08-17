@@ -41,6 +41,7 @@ import net.skds.lib2.utils.ArrayUtils;
 import net.skds.physex.PhysEx;
 import net.skds.physex.PhysExBootConfig;
 import net.skds.physex.PhysExGameRules;
+import net.skds.physex.fluids.item.FluidLevelsStorage;
 import net.skds.physex.fluids.layer.FluidLayer;
 
 import java.util.ArrayDeque;
@@ -533,6 +534,12 @@ public class FluidUtils {
 		return distribution.remainingFluid();
 	}
 
+	public static int placeFluid(ServerLevel world, BlockPos to, FlowingFluid fluid, int amount) {
+		FluidDistribution distribution = findSpaceForFluid(world, to, fluid, amount, FS_GETTER);
+		placeFluid(world, fluid, distribution);
+		return distribution.remainingFluid();
+	}
+
 	public static void displaceHook(ServerLevel world, BlockPos to, BlockState oldState, BlockState newState, FluidState newFs, FluidState correctFs, int flags) {
 		if (newFs.isEmpty() && newState.isAir() && isLiquid(oldState)) {
 			return;
@@ -612,7 +619,11 @@ public class FluidUtils {
 			}
 			if (!world.isClientSide()) {
 				CustomFluidTicks.get(world).fluidLayerUpdate(ca, to);
-				scheduleExtraUpdates(world, to, fluid);
+				Fluid updateFluid = fluid;
+				if (fs.isEmpty()) {
+					updateFluid = toFs.getType();
+				}
+				scheduleExtraUpdates(world, to, updateFluid);
 			}
 		}
 
@@ -637,8 +648,12 @@ public class FluidUtils {
 					fluid.beforeDestroyingBlock(world, to, toState);
 				}
 			}
-			if (!placed && bs != toState) {
-				world.setBlock(to, bs, flags, 16);
+			if (!placed) {
+				if (bs != toState) {
+					world.setBlock(to, bs, flags, 16);
+				} else if (fs.isEmpty()) {
+					world.sendBlockUpdated(to, toState, bs, Block.UPDATE_CLIENTS);
+				}
 			}
 		}
 	}
@@ -690,5 +705,33 @@ public class FluidUtils {
 			return !blockState.hasProperty(LiquidBlock.LEVEL);
 		}
 		return false;
+	}
+
+	public static FluidLevelsStorage pickUpFluid(Level world, Fluid fluid, BlockPos pos, int maxAmount) {
+		FluidState fs = world.getFluidState(pos);
+		if (!(fs.getType() instanceof FlowingFluid ff) || (fluid != null && !fluid.isSame(ff))) {
+			return FluidLevelsStorage.EMPTY;
+		}
+		int amount = fs.getAmount();
+		int toPick = Math.min(maxAmount, amount);
+		int picked = toPick;
+		if (toPick == 0) return FluidLevelsStorage.EMPTY;
+		amount -= toPick;
+		setFluid(world, pos, ff, amount, false);
+		if (picked < maxAmount) {
+			maxAmount -= picked;
+			BlockPos posD = pos.below();
+			if (!FluidUtils.isPathBlocked(world, pos, posD)) {
+				fs = world.getFluidState(posD);
+				if ((fs.getType() instanceof FlowingFluid ff2) && (fluid == null || fluid.isSame(ff2))) {
+					amount = fs.getAmount();
+					toPick = Math.min(maxAmount, amount);
+					amount -= toPick;
+					picked += toPick;
+					setFluid(world, posD, ff2, amount, false);
+				}
+			}
+		}
+		return new FluidLevelsStorage(fs.getType(), picked);
 	}
 }
