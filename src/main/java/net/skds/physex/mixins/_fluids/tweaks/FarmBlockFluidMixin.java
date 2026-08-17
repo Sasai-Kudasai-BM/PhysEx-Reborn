@@ -9,8 +9,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.FarmBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.skds.physex.PhysExGameRules;
 import net.skds.physex.fluids.FluidUtils;
+import net.skds.physex.fluids.PhysExFluidGameRules;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -23,8 +23,8 @@ public class FarmBlockFluidMixin {
 
 	@Inject(method = "randomTick", at = @At("HEAD"), cancellable = true, order = 2001)
 	void randomTick(BlockState blockState, ServerLevel serverLevel, BlockPos blockPos, RandomSource randomSource, CallbackInfo ci) {
-		int intake = serverLevel.getGameRules().getInt(PhysExGameRules.FARMLAND_WATER_INTAKE);
-		if (intake == -1) return;
+		double intake = serverLevel.getGameRules().get(PhysExFluidGameRules.FARMLAND_WATER_INTAKE);
+		if (intake < 0) return;
 		int i = blockState.getValue(FarmBlock.MOISTURE);
 		int dry = FarmBlock.MAX_MOISTURE - i;
 		if (!serverLevel.isRainingAt(blockPos.above()) &&

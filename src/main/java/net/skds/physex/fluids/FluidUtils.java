@@ -12,7 +12,7 @@ import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
@@ -40,7 +40,6 @@ import net.skds.lib2.mat.vec2.Vec2F;
 import net.skds.lib2.utils.ArrayUtils;
 import net.skds.physex.PhysEx;
 import net.skds.physex.PhysExBootConfig;
-import net.skds.physex.PhysExGameRules;
 import net.skds.physex.fluids.item.FluidLevelsStorage;
 import net.skds.physex.fluids.layer.FluidLayer;
 
@@ -51,18 +50,18 @@ import java.util.function.BiFunction;
 public class FluidUtils {
 
 	public static final TagKey<Block> FLUID_NOT_FRIENDLY_TAG = TagKey.create(Registries.BLOCK,
-			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "fluid_not_friendly")
+			Identifier.fromNamespaceAndPath(PhysEx.MOD_ID, "fluid_not_friendly")
 	);
 	public static final TagKey<Block> FLUID_SOLID_TAG = TagKey.create(Registries.BLOCK,
-			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "fluid_solid")
+			Identifier.fromNamespaceAndPath(PhysEx.MOD_ID, "fluid_solid")
 	);
 
 	public static final TagKey<Block> FLAMMABLE_TAG = TagKey.create(Registries.BLOCK,
-			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "flammable")
+			Identifier.fromNamespaceAndPath(PhysEx.MOD_ID, "flammable")
 	);
 
 	public static final TagKey<Block> FARMLAND_WATER_WAY = TagKey.create(Registries.BLOCK,
-			ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, "farmland_water_way")
+			Identifier.fromNamespaceAndPath(PhysEx.MOD_ID, "farmland_water_way")
 	);
 
 	public static final int DISPLACE_FLAG = 1 << PhysExBootConfig.INSTANCE.getFluidDisplaceFlagBitOffset();
@@ -221,7 +220,7 @@ public class FluidUtils {
 
 	public static void waterEvaporationLava(LevelAccessor world, BlockPos pos) {
 		if (world instanceof ServerLevel sl) {
-			int el = sl.getGameRules().getInt(PhysExGameRules.WATER_HOT_EVAPORATION);
+			int el = sl.getGameRules().get(PhysExFluidGameRules.WATER_HOT_EVAPORATION);
 			if (el == 0) return;
 			for (Direction direction : WATER_LAVA_DIR) {
 				BlockPos pos2 = pos.relative(direction);
@@ -663,7 +662,7 @@ public class FluidUtils {
 	                                           BlockPos blockPos,
 	                                           RandomSource random,
 	                                           int wetLevels,
-	                                           int intake
+	                                           double intake
 	) {
 		ObjectOpenHashSet<BlockPos> visited = new ObjectOpenHashSet<>(25, .5f);
 		ArrayDeque<BlockPos> next = new ArrayDeque<>();
@@ -682,7 +681,7 @@ public class FluidUtils {
 					}
 					FluidState fs2 = world.getFluidState(p2);
 					if (fs2.is(FluidTags.WATER)) {
-						if (intake > 0 && random.nextInt(1000) < intake * wetLevels && fs2.getType() instanceof FlowingFluid ff) {
+						if (intake > 0 && random.nextFloat() < intake * wetLevels && fs2.getType() instanceof FlowingFluid ff) {
 							BlockState bs2 = world.getBlockState(p2);
 							setFluid(world, p2, bs2, fs2, ff, fs2.getAmount() - 1, false);
 						}

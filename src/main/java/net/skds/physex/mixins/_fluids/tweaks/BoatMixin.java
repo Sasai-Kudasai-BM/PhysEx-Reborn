@@ -3,8 +3,8 @@ package net.skds.physex.mixins._fluids.tweaks;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.vehicle.AbstractBoat;
 import net.minecraft.world.entity.vehicle.VehicleEntity;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.skds.physex.fluids.FluidUtils;
@@ -37,7 +37,7 @@ public abstract class BoatMixin extends VehicleEntity {
 	}
 
 	@Redirect(method = "isUnderwater", at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/world/entity/vehicle/AbstractBoat;getBoundingBox()Lnet/minecraft/world/phys/AABB;",
+			target = "Lnet/minecraft/world/entity/vehicle/boat/AbstractBoat;getBoundingBox()Lnet/minecraft/world/phys/AABB;",
 			ordinal = 0
 	))
 	private AABB isUnderWater(AbstractBoat instance) {

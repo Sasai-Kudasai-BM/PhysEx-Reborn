@@ -10,9 +10,9 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
-import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.attribute.EnvironmentAttributes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BucketItem;
@@ -98,7 +98,6 @@ public abstract class BucketItemFluidMixin extends Item {
 		}
 	}
 
-	@SuppressWarnings("deprecation")
 	@Inject(method = "emptyContents", at = @At("HEAD"), cancellable = true)
 	void emptyContents(LivingEntity livingEntity, Level level, BlockPos blockPos, BlockHitResult blockHitResult, CallbackInfoReturnable<Boolean> cir) {
 		if (!(this.content instanceof FlowingFluid flowingFluid)) {
@@ -119,7 +118,7 @@ public abstract class BucketItemFluidMixin extends Item {
 						null
 				);
 				cir.setReturnValue(ret);
-			} else if (level.dimensionType().ultraWarm() && this.content.is(FluidTags.WATER)) {
+			} else if (level.environmentAttributes().getValue(EnvironmentAttributes.WATER_EVAPORATES, blockPos) && this.content.isSame(Fluids.WATER)) {
 				int i = blockPos.getX();
 				int j = blockPos.getY();
 				int k = blockPos.getZ();

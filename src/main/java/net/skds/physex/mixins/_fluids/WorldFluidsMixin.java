@@ -7,8 +7,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.material.FluidState;
-import net.skds.physex.PhysExGameRules;
 import net.skds.physex.fluids.FluidUtils;
+import net.skds.physex.fluids.PhysExFluidGameRules;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -29,16 +29,16 @@ public abstract class WorldFluidsMixin {
 					target = "Lnet/minecraft/world/level/chunk/LevelChunk;setBlockState(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Lnet/minecraft/world/level/block/state/BlockState;"
 			))
 	public BlockState setBlock(LevelChunk chunk,
-							   BlockPos blockPos,
-							   BlockState blockState,
-							   int flags
+	                           BlockPos blockPos,
+	                           BlockState blockState,
+	                           int flags
 	) {
 		FluidState fs = null;
 		boolean check = false;
 		if (!isClientSide()) {
 			if (FluidUtils.checkFlagsForDisplace(flags)) {
 				ServerLevel world = (ServerLevel) (Object) this;
-				int limit = world.getGameRules().getInt(PhysExGameRules.FLUID_DISPLACEMENT_LIMIT);
+				int limit = world.getGameRules().get(PhysExFluidGameRules.FLUID_DISPLACEMENT_LIMIT);
 				if (limit > 0) {
 					fs = getFluidState(blockPos);
 					if (!fs.isEmpty() && fs != blockState.getFluidState()) {

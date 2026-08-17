@@ -5,8 +5,8 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.skds.physex.PhysEx;
 import net.skds.physex.fluids.item.FluidLevelsStorage;
@@ -32,19 +32,19 @@ public class PhysExFluidItems {
 		if (!PhysEx.fluidItemsEnabled()) return null;
 		return Registry.register(
 				BuiltInRegistries.DATA_COMPONENT_TYPE,
-				ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, id),
+				Identifier.fromNamespaceAndPath(PhysEx.MOD_ID, id),
 				builder.apply(DataComponentType.builder()).build()
 		);
 	}
 
 	private static <T extends Item> T registerItem(String id, Function<Item.Properties, T> function) {
 		if (!PhysEx.fluidItemsEnabled()) return null;
-		ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(PhysEx.MOD_ID, id));
+		ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(PhysEx.MOD_ID, id));
 		Item.Properties properties = new Item.Properties();
 		properties.setId(key);
 		return Registry.register(
 				BuiltInRegistries.ITEM,
-				key.location(),
+				key.identifier(),
 				function.apply(properties)
 		);
 	}

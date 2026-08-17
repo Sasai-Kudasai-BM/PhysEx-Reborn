@@ -8,8 +8,8 @@
 		"Sasai_Kudasai_BM"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "",
+		"sources": ""
 	},
 	"license": "GPLv3",
 	"icon": "assets/physex/icon.png",
@@ -39,7 +39,7 @@
 	],
 	"depends": {
 		"fabricloader": ">=0.19.0",
-		"minecraft": "~1.21.10",
+		"minecraft": "~1.21.11",
 		"java": ">=21",
 		"fabric-api": "*"
 	},

@@ -14,7 +14,6 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.ticks.LevelTicks;
-import net.skds.physex.PhysExGameRules;
 import net.skds.physex.fluids.layer.FluidLayer;
 
 import java.util.ArrayDeque;
@@ -48,7 +47,7 @@ public class CustomFluidTicks extends LevelTicks<Fluid> {
 	}
 
 	public int getTaskLimit() {
-		return world.getGameRules().getInt(PhysExGameRules.TASK_LIMIT);
+		return world.getGameRules().get(PhysExFluidGameRules.TASK_LIMIT);
 	}
 
 	public void fluidLayerUpdate(ChunkAccess chunk, BlockPos pos) {

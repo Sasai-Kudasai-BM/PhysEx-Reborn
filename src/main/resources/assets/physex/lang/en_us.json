@@ -1,13 +1,13 @@
 {
-	"gamerule.physexTaskLimit": "Fluid tasks limit",
-	"gamerule.physexTaskLimit.description": "Limit for fluid update tasks",
-	"gamerule.physexDripstoneFillCauldron": "Dripstone fill cauldron",
-	"gamerule.physexDripstoneFillCauldron.description": "Will dripstone fill cauldrons",
-	"gamerule.physexFluidDisplacementLimit": "Fluid displacement limit",
-	"gamerule.physexFluidDisplacementLimit.description": "Maximum distance for fluids to find the way out when block placed in (0 = no displacement)",
-	"gamerule.physexWaterHotFluidEvaporation": "Water evaporation upon contact with lava",
-	"gamerule.physexWaterHotFluidEvaporation.description": "Number of layers that will evaporate (0 = no evaporation)",
-	"gamerule.FarmlandWaterIntake": "Farmland consumes water",
-	"gamerule.FarmlandWaterIntake.description": "Farmland consumes water, farmland also need to be connected with dirt-like block with water (0 = no consumption, -1 = vanilla behavior)",
+	"gamerule.physex.task_limit": "Fluid tasks limit",
+	"gamerule.physex.task_limit.description": "Limit for fluid update tasks",
+	"gamerule.physex.dripstone_fill_cauldron": "Dripstone fill cauldron",
+	"gamerule.physex.dripstone_fill_cauldron.description": "Will dripstone fill cauldrons",
+	"gamerule.physex.fluid_displacement_limit": "Fluid displacement limit",
+	"gamerule.physex.fluid_displacement_limit.description": "Maximum distance for fluids to find the way out when block placed in (0 = no displacement)",
+	"gamerule.physex.water_hot_fluid_evaporation": "Water evaporation upon contact with lava",
+	"gamerule.physex.water_hot_fluid_evaporation.description": "Number of layers that will evaporate (0 = no evaporation)",
+	"gamerule.physex.farmland_water_intake": "Farmland consumes water",
+	"gamerule.physex.farmland_water_intake.description": "Farmland consumes water, farmland also need to be connected with dirt-like block with water (0 = no consumption, -1 = vanilla behavior)",
 	"tooltip.physex.bucket_content": "%s: %sB"
 }
