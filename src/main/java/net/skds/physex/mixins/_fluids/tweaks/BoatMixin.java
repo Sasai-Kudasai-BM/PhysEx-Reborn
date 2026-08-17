@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
@@ -36,15 +37,11 @@ public abstract class BoatMixin extends VehicleEntity {
 		return Mth.ceil(aABB.maxY + 0.001);
 	}
 
-	@Redirect(method = "isUnderwater", at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/world/entity/vehicle/boat/AbstractBoat;getBoundingBox()Lnet/minecraft/world/phys/AABB;",
-			ordinal = 0
-	))
-	private AABB isUnderWater(AbstractBoat instance) {
-		return instance.getBoundingBox().expandTowards(0, .2, 1);
+	@ModifyVariable(method = "isUnderwater", at = @At(value = "STORE"), ordinal = 0)
+	private AABB isUnderWater(AABB aabb) {
+		return aabb.expandTowards(0, .2, 0);
 	}
-
-
+	
 	@Inject(method = "floatBoat", at = @At("HEAD"))
 	private void floatBoat(CallbackInfo ci) {
 		if (oldStatus == AbstractBoat.Status.IN_WATER || status == AbstractBoat.Status.IN_WATER) {
