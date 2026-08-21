@@ -37,9 +37,9 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.skds.lib2.mat.FastMath;
 import net.skds.lib2.mat.vec2.Vec2F;
-import net.skds.lib2.utils.ArrayUtils;
 import net.skds.physex.PhysEx;
 import net.skds.physex.PhysExBootConfig;
+import net.skds.physex.PhysExUtils;
 import net.skds.physex.fluids.item.FluidLevelsStorage;
 import net.skds.physex.fluids.layer.FluidLayer;
 
@@ -75,7 +75,6 @@ public class FluidUtils {
 	public static final PhysExBootConfig.WaterlogPolicy WATERLOG_POLICY = PhysExBootConfig.WaterlogPolicy.ALL_OR_NOTHING;
 	//PhysExBootConfig.INSTANCE.getWaterlogPolicy();
 
-
 	public static final BiFunction<Level, BlockPos, FluidState> FS_GETTER = Level::getFluidState;
 	public static final Direction[] HORIZONTAL = {Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH};
 	public static final Direction[] WATER_LAVA_DIR = {Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH, Direction.UP};
@@ -90,67 +89,7 @@ public class FluidUtils {
 
 	public static final float BOAT_FLOATABILITY = 0.02f;
 	public static final float BOAT_FLOAT_OFFSET = -0.15f;
-
-	private static final Direction[][] SHUFFLE_H = {
-			{Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH},
-			{Direction.EAST, Direction.WEST, Direction.SOUTH, Direction.NORTH},
-			{Direction.EAST, Direction.NORTH, Direction.SOUTH, Direction.WEST},
-			{Direction.EAST, Direction.NORTH, Direction.WEST, Direction.SOUTH},
-			{Direction.EAST, Direction.SOUTH, Direction.WEST, Direction.NORTH},
-			{Direction.EAST, Direction.SOUTH, Direction.NORTH, Direction.WEST},
-			{Direction.WEST, Direction.EAST, Direction.NORTH, Direction.SOUTH},
-			{Direction.WEST, Direction.EAST, Direction.SOUTH, Direction.NORTH},
-			{Direction.WEST, Direction.NORTH, Direction.SOUTH, Direction.EAST},
-			{Direction.WEST, Direction.NORTH, Direction.EAST, Direction.SOUTH},
-			{Direction.WEST, Direction.SOUTH, Direction.EAST, Direction.NORTH},
-			{Direction.WEST, Direction.SOUTH, Direction.NORTH, Direction.EAST},
-			{Direction.NORTH, Direction.EAST, Direction.WEST, Direction.SOUTH},
-			{Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST},
-			{Direction.NORTH, Direction.WEST, Direction.SOUTH, Direction.EAST},
-			{Direction.NORTH, Direction.WEST, Direction.EAST, Direction.SOUTH},
-			{Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST},
-			{Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST},
-			{Direction.SOUTH, Direction.EAST, Direction.WEST, Direction.NORTH},
-			{Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST},
-			{Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST},
-			{Direction.SOUTH, Direction.WEST, Direction.EAST, Direction.NORTH},
-			{Direction.SOUTH, Direction.NORTH, Direction.EAST, Direction.WEST},
-			{Direction.SOUTH, Direction.NORTH, Direction.WEST, Direction.EAST},
-	};
-	private static final Direction[][] SHUFFLE_FLUID_PRIORITY;
-	private static final Direction[][] SHUFFLE_INVERSE_PRIORITY;
-
-	static {
-		Direction[][] shuffle = new Direction[SHUFFLE_H.length][];
-		Direction[][] shuffleInv = new Direction[SHUFFLE_H.length][];
-		for (int i = 0; i < shuffle.length; i++) {
-			Direction[] layer = new Direction[6];
-			System.arraycopy(SHUFFLE_H[i], 0, layer, 1, 4);
-			layer[0] = Direction.DOWN;
-			layer[5] = Direction.UP;
-			shuffle[i] = layer;
-			layer = layer.clone();
-			layer[0] = Direction.UP;
-			layer[5] = Direction.DOWN;
-			shuffleInv[i] = layer;
-		}
-		SHUFFLE_FLUID_PRIORITY = shuffle;
-		SHUFFLE_INVERSE_PRIORITY = shuffleInv;
-	}
-
-	public static Direction[] randomHorizontal() {
-		return ArrayUtils.getRandom(SHUFFLE_H);
-	}
-
-	public static Direction[] randomAllPriority() {
-		return ArrayUtils.getRandom(SHUFFLE_FLUID_PRIORITY);
-	}
-
-	public static Direction[] randomAllPriorityInverted() {
-		return ArrayUtils.getRandom(SHUFFLE_INVERSE_PRIORITY);
-	}
-
-
+	
 	public static Direction getDirection(float x, float z) {
 		float absX = Math.abs(x);
 		float absZ = Math.abs(z);
@@ -495,7 +434,7 @@ public class FluidUtils {
 		int i = 0;
 		while ((next = queue.poll()) != null) {
 			if (i++ > limit) break;
-			for (Direction dir : randomAllPriority()) {
+			for (Direction dir : PhysExUtils.randomAllDownFirst()) {
 				BlockPos p2 = next.relative(dir);
 				long lp = p2.asLong();
 				if (visited.contains(lp)) continue;
@@ -674,7 +613,7 @@ public class FluidUtils {
 			current = next;
 			next = new ArrayDeque<>();
 			while ((p0 = current.poll()) != null) {
-				for (Direction dir : randomHorizontal()) {
+				for (Direction dir : PhysExUtils.randomHorizontal()) {
 					BlockPos p2 = p0.relative(dir);
 					if (!visited.add(p2) || p2.distSqr(blockPos) > 24) {
 						continue;

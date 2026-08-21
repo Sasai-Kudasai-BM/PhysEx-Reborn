@@ -15,7 +15,7 @@ import java.util.Objects;
 @SuppressWarnings({"FieldMayBeFinal", "FieldCanBeLocal"})
 @Getter
 public final class PhysExBootConfig {
-	public static final Path PATH = PhysEx.CFG_DIR.resolve("boot.jsonc");
+	private static final Path PATH = PhysEx.CFG_DIR.resolve("boot.jsonc");
 	public static final PhysExBootConfig INSTANCE = load();
 
 	private static final int VERSION = 1;
@@ -51,7 +51,7 @@ public final class PhysExBootConfig {
 
 
 	@JsonComment("Enables the blocks part (WIP)")
-	private transient boolean blockPhysicsEnabled = false;
+	private boolean blockPhysicsEnabled = false;
 
 	@JsonComment("Makes this mod server side only")
 	private boolean serverOnly = false;

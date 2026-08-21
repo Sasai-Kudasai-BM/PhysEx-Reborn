@@ -8,6 +8,7 @@ import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.skds.physex.PhysExUtils;
 
 
 public abstract sealed class AbstractFluidTask implements Runnable permits ClassicFlowTask, EqualizationFluidTask {
@@ -25,7 +26,7 @@ public abstract sealed class AbstractFluidTask implements Runnable permits Class
 		this.pos = pos;
 		this.fluid = fluid;
 		this.world = world;
-		this.randDirs = FluidUtils.randomHorizontal();
+		this.randDirs = PhysExUtils.randomHorizontal();
 		this.fluidTicks = CustomFluidTicks.get(world);
 	}
 
