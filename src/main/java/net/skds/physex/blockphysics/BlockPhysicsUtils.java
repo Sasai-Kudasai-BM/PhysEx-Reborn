@@ -32,6 +32,9 @@ public class BlockPhysicsUtils {
 
 	public static final int DIR_UP_MASK = 1 << Direction.UP.ordinal();
 	public static final int DIR_DOWN_MASK = 1 << Direction.DOWN.ordinal();
+	public static final int DIR_X_AXIS_MASK = (1 << Direction.WEST.ordinal()) | (1 << Direction.EAST.ordinal());
+	public static final int DIR_Z_AXIS_MASK = (1 << Direction.SOUTH.ordinal()) | (1 << Direction.NORTH.ordinal());
+
 	public static final int DIR_HORIZONTAL_MASK = (1 << Direction.NORTH.ordinal())
 			| (1 << Direction.SOUTH.ordinal())
 			| (1 << Direction.EAST.ordinal())
