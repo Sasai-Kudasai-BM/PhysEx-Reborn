@@ -93,6 +93,14 @@ public record BlockPhysicsData(
 				"]";
 	}
 
+	public boolean haveLateralStrength() {
+		return (arc > 0 || beam > 0) && slideInstability == 0;
+	}
+
+	public int lateralLimit() {
+		return Math.max(this.arc, this.beam);
+	}
+
 	public boolean isNormal() {
 		return this != AIR && this != IMMOVABLE && !vanillaPhysics;
 	}
@@ -103,5 +111,20 @@ public record BlockPhysicsData(
 
 	public boolean isImmovable() {
 		return this == IMMOVABLE;
+	}
+
+	public int getDirMaskNoDown() {
+		int mask = 0;
+		if (haveLateralStrength()) {
+			mask = BlockPhysicsUtils.DIR_HORIZONTAL_MASK;
+		}
+		if (hang) {
+			mask |= BlockPhysicsUtils.DIR_UP_MASK;
+		}
+		return mask;
+	}
+
+	public int getDirMask() {
+		return BlockPhysicsUtils.DIR_DOWN_MASK | getDirMaskNoDown();
 	}
 }

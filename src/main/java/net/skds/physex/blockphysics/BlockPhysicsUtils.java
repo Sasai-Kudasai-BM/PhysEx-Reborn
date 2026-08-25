@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import lombok.experimental.UtilityClass;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -26,6 +27,16 @@ import java.util.Set;
 @UtilityClass
 public class BlockPhysicsUtils {
 
+	public static final Direction[] DIR_HORIZONTAL = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+	public static final Direction[] DIRECTIONS = Direction.values();
+
+	public static final int DIR_UP_MASK = 1 << Direction.UP.ordinal();
+	public static final int DIR_DOWN_MASK = 1 << Direction.DOWN.ordinal();
+	public static final int DIR_HORIZONTAL_MASK = (1 << Direction.NORTH.ordinal())
+			| (1 << Direction.SOUTH.ordinal())
+			| (1 << Direction.EAST.ordinal())
+			| (1 << Direction.WEST.ordinal());
+
 	public static final TagKey<Block> VANILLA_BLOCK_PHYSICS_TAG = TagKey.create(Registries.BLOCK,
 			Identifier.fromNamespaceAndPath(PhysEx.MOD_ID, "vanilla_block_physics")
 	);
@@ -36,6 +47,24 @@ public class BlockPhysicsUtils {
 
 	public static BlockPhysicsData getPhysics(ServerLevel world, BlockPos pos, BlockState state) {
 		return BlockStatePhysicsHolder.get(state, world, false);
+	}
+
+	public static boolean checkDirection(int mask, Direction dir) {
+		int dm = 1 << dir.ordinal();
+		return (mask & dm) != 0;
+	}
+
+	public static int removeDirection(int mask, Direction dir) {
+		int dm = 1 << dir.ordinal();
+		return mask & ~dm;
+	}
+
+	public static int sectionIndex(int x, int y, int z) {
+		return ((y & 15) << 8) | ((x & 15) << 4) | (z & 15);
+	}
+
+	public static int sectionIndex(BlockPos pos) {
+		return ((pos.getY() & 15) << 8) | ((pos.getX() & 15) << 4) | (pos.getZ() & 15);
 	}
 
 	private static void applyConfig(MinecraftServer server, BlockPhysicsConfig config) {

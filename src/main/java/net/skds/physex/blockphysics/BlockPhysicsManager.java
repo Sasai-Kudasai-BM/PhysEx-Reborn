@@ -15,10 +15,9 @@ import java.util.ArrayDeque;
 public class BlockPhysicsManager {
 
 	final ServerLevel world;
-
+	final ObjectOpenHashSet<BlockPos> taskSet = new ObjectOpenHashSet<>(256, .5f);
 	private final ArrayDeque<BlockPhysicsChain> taskQueue = new ArrayDeque<>();
 	private final ReferenceOpenHashSet<BlockPhysicsChain> taskQueueSet = new ReferenceOpenHashSet<>(16, .5f);
-	final ObjectOpenHashSet<BlockPos> taskSet = new ObjectOpenHashSet<>(256, .5f);
 
 	public BlockPhysicsManager(ServerLevel world) {
 		this.world = world;
@@ -28,14 +27,15 @@ public class BlockPhysicsManager {
 		return ((BlockPhysicsManagerGetter) world).physEx$getBlockPhysicsManager();
 	}
 
-	public void scheduleBlockCheck(BlockPhysicsChain chain) {
-		if (taskQueueSet.add(chain)) {
-			this.taskQueue.addLast(chain);
-			this.taskSet.addAll(chain.leaves);
-		}
-	}
+	//public void scheduleBlockCheck(BlockPhysicsChain chain) {
+	//	if (taskQueueSet.add(chain)) {
+	//		this.taskQueue.addLast(chain);
+	//		this.taskSet.addAll(chain.leaves);
+	//	}
+	//}
 
 	public void scheduleBlockCheck(BlockPos pos) {
+		if (!world.shouldTickBlocksAt(pos)) return;
 		BlockState bs = world.getBlockState(pos);
 		BlockPhysicsData physics = BlockPhysicsUtils.getPhysics(world, pos, bs);
 		if (physics.isNormal() && taskSet.add(pos)) {
@@ -46,6 +46,7 @@ public class BlockPhysicsManager {
 	}
 
 	public void blockUpdated(BlockPos pos) {
+		scheduleBlockCheck(pos);
 		for (Direction dir : PhysExUtils.randomAllUpFirst()) {
 			scheduleBlockCheck(pos.relative(dir));
 		}
