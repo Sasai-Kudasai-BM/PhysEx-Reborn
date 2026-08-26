@@ -25,9 +25,6 @@ public final class BlockPhysicsChain {
 	public static final int LONG_BEAM_FLAG = 1;
 	public static final int ARC_FLAG = 2;
 
-	public static final int ARC_REQ_MASK_TOP = 1 << 31;
-	public static final int ARC_REQ_MASK_BOTTOM = 1 << 30;
-
 	private final BlockPos.MutableBlockPos cursor1 = new BlockPos.MutableBlockPos();
 	private final BlockPos.MutableBlockPos cursor2 = new BlockPos.MutableBlockPos();
 
@@ -36,15 +33,15 @@ public final class BlockPhysicsChain {
 
 	private final LongOpenHashSet visited = new LongOpenHashSet(16, .5f);
 	private final Long2IntOpenHashMap carryDirection = new Long2IntOpenHashMap(16, .5f);
-	private final Long2IntOpenHashMap requireSupport = new Long2IntOpenHashMap(16, .5f);
+	private final LongOpenHashSet requireArcSupport = new LongOpenHashSet(16, .5f);
 	private final LongArrayList requireSupportCheck = new LongArrayList();
 	private final LongArrayList unwindQueue = new LongArrayList(16);
-	private long[] nodes = new long[8];
-	private byte[] nodeDirections = new byte[nodes.length];
-	private byte[] nodeFlags = new byte[nodes.length];
-	private short[] nodeDistance = new short[nodes.length];
+	private final LongOpenHashSet unwindPath = new LongOpenHashSet(16, .5f);
+
+	private Stack stack = new Stack();
+	private Stack stackUp = new Stack();
+
 	private final LongOpenHashSet nodeSet = new LongOpenHashSet(16, .5f);
-	private int head = -1;
 
 	private final BlockPhysicsManager manager;
 	private final ServerLevel world;
@@ -64,18 +61,32 @@ public final class BlockPhysicsChain {
 
 	private void pushNode(long pos, int dirMask, int distance, int flags) {
 		if (dirMask == 0 || !nodeSet.add(pos)) return;
-		int h = head + 1;
-		if (h >= this.nodes.length) {
-			this.nodes = Arrays.copyOf(this.nodes, this.nodes.length * 2);
-			this.nodeDirections = Arrays.copyOf(this.nodeDirections, this.nodes.length);
-			this.nodeFlags = Arrays.copyOf(this.nodeFlags, this.nodes.length);
-			this.nodeDistance = Arrays.copyOf(this.nodeDistance, this.nodes.length);
+		Stack stk = this.stack;
+		if (stk.isEmpty()) {
+			stk.pushNode(pos, dirMask, distance, flags);
+			return;
 		}
-		head = h;
-		this.nodes[h] = pos;
-		this.nodeDistance[h] = (short) distance;
-		this.nodeFlags[h] = (byte) flags;
-		this.nodeDirections[h] = (byte) dirMask;
+		long headPos = stk.nodes[stk.head];
+		int headY = BlockPos.getY(headPos);
+		int targetY = BlockPos.getY(pos);
+		if (targetY > headY) {
+			stk = this.stackUp;
+		}
+		stk.pushNode(pos, dirMask, distance, flags);
+	}
+
+	private Stack nextStack() {
+		Stack current = this.stack;
+		if (current.isEmpty()) {
+			Stack up = this.stackUp;
+			if (up.isEmpty()) {
+				return null;
+			}
+			this.stack = up;
+			this.stackUp = current;
+			current = up;
+		}
+		return current;
 	}
 
 	public void tick() {
@@ -84,7 +95,8 @@ public final class BlockPhysicsChain {
 		int mask;
 		int flags;
 		int i = 1000;
-		while (head >= 0) {
+		Stack stk;
+		while ((stk = nextStack()) != null) {
 			if (--i <= 0) {
 				System.err.println("Tragedy");
 				return;
@@ -92,10 +104,12 @@ public final class BlockPhysicsChain {
 			if (success && checkSuccess()) {
 				break;
 			}
-			pos = nodes[head];
-			dist = nodeDistance[head];
-			flags = nodeFlags[head];
-			mask = nodeDirections[head--];
+			int head = stk.head;
+			pos = stk.nodes[head];
+			dist = stk.nodeDistance[head];
+			flags = stk.nodeFlags[head];
+			mask = stk.nodeDirections[head];
+			stk.head--;
 			if (!nodeSet.remove(pos)) {
 				continue;
 			}
@@ -112,62 +126,80 @@ public final class BlockPhysicsChain {
 		}
 	}
 
+	private boolean haveConnection(int dirMask, Direction dir) {
+		while (dirMask != 0) {
+			StablePathValue spv = StablePathValue.byMask(dirMask);
+			dirMask >>>= StablePathValue.BITS;
+			Direction mskDir = spv.direction;
+			if (mskDir == dir) return true;
+		}
+		return false;
+	}
+
+	private boolean haveConnection(long lp, Direction dir) {
+		int dirMask = carryDirection.get(lp);
+		if (haveConnection(dirMask, dir)) {
+			return true;
+		}
+		cursor2.set(lp).move(dir);
+		long lp2 = cursor2.asLong();
+		if (!unwindPath.contains(lp2)) {
+			return false;
+		}
+		Direction opposite = dir.getOpposite();
+		dirMask = carryDirection.get(lp2);
+		return haveConnection(dirMask, opposite);
+	}
+
+	private int mask(Direction dir) {
+		return dir.getAxisDirection() == Direction.AxisDirection.POSITIVE ? 1 : 2;
+	}
+
+	private boolean checkArc(long lp) {
+		int x = 3;
+		int z = 3;
+
+		if (haveConnection(lp, Direction.DOWN)) {
+			return true;
+		}
+		for (Direction dir : DIR_HORIZONTAL) {
+			if (haveConnection(lp, dir)) {
+				switch (dir.getAxis()) {
+					case X -> x &= mask(dir);
+					case Z -> z &= mask(dir);
+				}
+			}
+		}
+		if (x == 0 || z == 0) return true;
+		if (haveConnection(lp, Direction.UP)) {
+			cursor1.set(lp).move(0, 1, 0);
+			long lp2 = cursor1.asLong();
+			for (Direction dir : DIR_HORIZONTAL) {
+				if (haveConnection(lp2, dir)) {
+					switch (dir.getAxis()) {
+						case X -> x &= mask(dir);
+						case Z -> z &= mask(dir);
+					}
+				}
+			}
+		} else {
+			return false;
+		}
+		return x == 0 || z == 0;
+	}
+
 	private boolean checkSuccess() {
 		while (!requireSupportCheck.isEmpty()) {
 			long lp = requireSupportCheck.popLong();
-			System.out.println("Check " + BlockPos.of(lp));
-			if (!checkRequiredSupport(lp)) {
-				System.out.println("Check fail");
-				success = false;
-
+			if (!checkArc(lp)) {
 				if (DEBUG) {
 					BlockPhysicsDebug.debug(BlockPos.of(lp), Blocks.BLUE_STAINED_GLASS.defaultBlockState());
 				}
+				success = false;
 				return false;
 			}
 		}
 		return true;
-	}
-
-	private boolean checkRequiredSupport(long pos, Direction direction) {
-		int value = requireSupport.get(pos);
-		if ((value & ARC_REQ_MASK_TOP) != 0) {
-			unwindCursor2.set(pos).move(0, -1, 0);
-			pos = unwindCursor2.asLong();
-			value = requireSupport.get(pos);
-		}
-		if (value == 0) return true;
-		int dirMask = 1 << direction.ordinal();
-		int dirMask2 = dirMask << 8;
-		int value2 = value & ~(dirMask | dirMask2);
-		if (value != value2) {
-			value = value2;
-			requireSupport.put(pos, value);
-		}
-		return (value & 0xff) == 0 || (value & 0xff00) == 0;
-	}
-
-	private boolean checkRequiredSupport(long pos) {
-		int value = requireSupport.get(pos);
-		return (value & 0xff) == 0 || (value & 0xff00) == 0;
-	}
-
-	private void requireSupport(long pos, int mask1, int mask2, boolean top) {
-		int value = (mask1 & 0xff) | ((mask2 & 0xff) << 8);
-		System.out.println("Request " + BlockPos.of(pos));
-		if (top) {
-			value |= ARC_REQ_MASK_BOTTOM;
-		}
-		requireSupport.putIfAbsent(pos, value);
-	}
-
-	private void requireTopSupport(long pos) {
-		int value = requireSupport.get(pos);
-		value |= ARC_REQ_MASK_TOP;
-		requireSupport.put(pos, value);
-		//if (DEBUG) {
-		//	BlockPhysicsDebug.debug(BlockPos.of(pos), Blocks.LIME_STAINED_GLASS.defaultBlockState());
-		//}
 	}
 
 	private void stablePathCandidate(long pos, Direction value) {
@@ -199,9 +231,8 @@ public final class BlockPhysicsChain {
 			if (physicsData.beam() < physicsData.arc()) {
 				flags |= ARC_FLAG;
 				mask |= DIR_UP_MASK;
-				requireSupport(pos, DIR_X_AXIS_MASK, DIR_Z_AXIS_MASK, true);
-				cursor2.setWithOffset(cursor1, 0, 1, 0);
-				requireTopSupport(cursor2.asLong());
+				distance = 0;
+				requireArcSupport.add(pos);
 			}
 			for (Direction dir : DIR_HORIZONTAL) {
 				int newMask;
@@ -223,6 +254,7 @@ public final class BlockPhysicsChain {
 
 	void unwind(long pos) {
 		unwindQueue.add(pos);
+		boolean normal = true;
 		do {
 			long lp = unwindQueue.popLong();
 			unwindCursor1.set(lp);
@@ -235,15 +267,20 @@ public final class BlockPhysicsChain {
 					mask >>>= StablePathValue.BITS;
 					Direction opposite = dir.getOpposite();
 					if (opposite == value.direction) {
-						boolean singlePath = checkRequiredSupport(pl, opposite);
+						boolean singlePath = !requireArcSupport.contains(pl);
 						if (!singlePath) {
+							normal = false;
 							requireSupportCheck.add(pl);
+						}
+						unwindPath.add(pl);
+						if (DEBUG) {
+							BlockPhysicsDebug.debug(unwindCursor2, Blocks.LIME_STAINED_GLASS.defaultBlockState());
 						}
 						if (pl == startPosL) {
 							success = true;
 							return;
 						}
-						if (singlePath) {
+						if (normal) {
 							nodeSet.remove(pl);
 						}
 						unwindQueue.add(pl);
@@ -344,5 +381,33 @@ public final class BlockPhysicsChain {
 
 	private BlockPhysicsData getPhysics(BlockPos pos, BlockState state) {
 		return BlockPhysicsUtils.getPhysics(world, pos, state);
+	}
+
+	private static class Stack {
+
+		private long[] nodes = new long[8];
+		private byte[] nodeDirections = new byte[nodes.length];
+		private byte[] nodeFlags = new byte[nodes.length];
+		private short[] nodeDistance = new short[nodes.length];
+		private int head = -1;
+
+		private void pushNode(long pos, int dirMask, int distance, int flags) {
+			int h = head + 1;
+			if (h >= this.nodes.length) {
+				this.nodes = Arrays.copyOf(this.nodes, this.nodes.length * 2);
+				this.nodeDirections = Arrays.copyOf(this.nodeDirections, this.nodes.length);
+				this.nodeFlags = Arrays.copyOf(this.nodeFlags, this.nodes.length);
+				this.nodeDistance = Arrays.copyOf(this.nodeDistance, this.nodes.length);
+			}
+			head = h;
+			this.nodes[h] = pos;
+			this.nodeDistance[h] = (short) distance;
+			this.nodeFlags[h] = (byte) flags;
+			this.nodeDirections[h] = (byte) dirMask;
+		}
+
+		private boolean isEmpty() {
+			return head < 0;
+		}
 	}
 }
