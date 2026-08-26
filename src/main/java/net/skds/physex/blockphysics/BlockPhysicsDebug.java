@@ -31,7 +31,7 @@ public class BlockPhysicsDebug {
 			@Override
 			public void tick() {
 				super.tick();
-				if (age++ > 2) {
+				if (age++ > 4) {
 					discard();
 				}
 			}

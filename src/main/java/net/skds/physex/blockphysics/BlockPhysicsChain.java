@@ -26,6 +26,7 @@ public final class BlockPhysicsChain {
 	public static final int ARC_FLAG = 2;
 
 	public static final int ARC_REQ_MASK_TOP = 1 << 31;
+	public static final int ARC_REQ_MASK_BOTTOM = 1 << 30;
 
 	private final BlockPos.MutableBlockPos cursor1 = new BlockPos.MutableBlockPos();
 	private final BlockPos.MutableBlockPos cursor2 = new BlockPos.MutableBlockPos();
@@ -36,6 +37,7 @@ public final class BlockPhysicsChain {
 	private final LongOpenHashSet visited = new LongOpenHashSet(16, .5f);
 	private final Long2IntOpenHashMap carryDirection = new Long2IntOpenHashMap(16, .5f);
 	private final Long2IntOpenHashMap requireSupport = new Long2IntOpenHashMap(16, .5f);
+	private final LongArrayList requireSupportCheck = new LongArrayList();
 	private final LongArrayList unwindQueue = new LongArrayList(16);
 	private long[] nodes = new long[8];
 	private byte[] nodeDirections = new byte[nodes.length];
@@ -82,10 +84,13 @@ public final class BlockPhysicsChain {
 		int mask;
 		int flags;
 		int i = 1000;
-		while (head >= 0 && !success) {
+		while (head >= 0) {
 			if (--i <= 0) {
 				System.err.println("Tragedy");
 				return;
+			}
+			if (success && checkSuccess()) {
+				break;
 			}
 			pos = nodes[head];
 			dist = nodeDistance[head];
@@ -107,12 +112,26 @@ public final class BlockPhysicsChain {
 		}
 	}
 
+	private boolean checkSuccess() {
+		while (!requireSupportCheck.isEmpty()) {
+			long lp = requireSupportCheck.popLong();
+			System.out.println("Check " + BlockPos.of(lp));
+			if (!checkRequiredSupport(lp)) {
+				System.out.println("Check fail");
+				success = false;
+
+				if (DEBUG) {
+					BlockPhysicsDebug.debug(BlockPos.of(lp), Blocks.BLUE_STAINED_GLASS.defaultBlockState());
+				}
+				return false;
+			}
+		}
+		return true;
+	}
+
 	private boolean checkRequiredSupport(long pos, Direction direction) {
 		int value = requireSupport.get(pos);
 		if ((value & ARC_REQ_MASK_TOP) != 0) {
-			if (DEBUG) {
-				BlockPhysicsDebug.debug(BlockPos.of(pos), Blocks.BLUE_STAINED_GLASS.defaultBlockState());
-			}
 			unwindCursor2.set(pos).move(0, -1, 0);
 			pos = unwindCursor2.asLong();
 			value = requireSupport.get(pos);
@@ -128,13 +147,24 @@ public final class BlockPhysicsChain {
 		return (value & 0xff) == 0 || (value & 0xff00) == 0;
 	}
 
-	private void requireSupport(long pos, int mask1, int mask2) {
+	private boolean checkRequiredSupport(long pos) {
+		int value = requireSupport.get(pos);
+		return (value & 0xff) == 0 || (value & 0xff00) == 0;
+	}
+
+	private void requireSupport(long pos, int mask1, int mask2, boolean top) {
 		int value = (mask1 & 0xff) | ((mask2 & 0xff) << 8);
+		System.out.println("Request " + BlockPos.of(pos));
+		if (top) {
+			value |= ARC_REQ_MASK_BOTTOM;
+		}
 		requireSupport.putIfAbsent(pos, value);
 	}
 
 	private void requireTopSupport(long pos) {
-		requireSupport.put(pos, ARC_REQ_MASK_TOP);
+		int value = requireSupport.get(pos);
+		value |= ARC_REQ_MASK_TOP;
+		requireSupport.put(pos, value);
 		//if (DEBUG) {
 		//	BlockPhysicsDebug.debug(BlockPos.of(pos), Blocks.LIME_STAINED_GLASS.defaultBlockState());
 		//}
@@ -169,7 +199,7 @@ public final class BlockPhysicsChain {
 			if (physicsData.beam() < physicsData.arc()) {
 				flags |= ARC_FLAG;
 				mask |= DIR_UP_MASK;
-				requireSupport(pos, DIR_X_AXIS_MASK, DIR_Z_AXIS_MASK);
+				requireSupport(pos, DIR_X_AXIS_MASK, DIR_Z_AXIS_MASK, true);
 				cursor2.setWithOffset(cursor1, 0, 1, 0);
 				requireTopSupport(cursor2.asLong());
 			}
@@ -205,13 +235,16 @@ public final class BlockPhysicsChain {
 					mask >>>= StablePathValue.BITS;
 					Direction opposite = dir.getOpposite();
 					if (opposite == value.direction) {
-						if (!checkRequiredSupport(pl, opposite)) {
-							continue;
+						boolean singlePath = checkRequiredSupport(pl, opposite);
+						if (!singlePath) {
+							requireSupportCheck.add(pl);
 						}
-						nodeSet.remove(pl);
 						if (pl == startPosL) {
 							success = true;
 							return;
+						}
+						if (singlePath) {
+							nodeSet.remove(pl);
 						}
 						unwindQueue.add(pl);
 					}
