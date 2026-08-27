@@ -89,7 +89,7 @@ public class FluidUtils {
 
 	public static final float BOAT_FLOATABILITY = 0.02f;
 	public static final float BOAT_FLOAT_OFFSET = -0.15f;
-	
+
 	public static Direction getDirection(float x, float z) {
 		float absX = Math.abs(x);
 		float absZ = Math.abs(z);
@@ -544,9 +544,10 @@ public class FluidUtils {
 				| Block.UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
 		if (update) {
 			flags |= Block.UPDATE_NEIGHBORS;
-		} else {
-			flags |= Block.UPDATE_KNOWN_SHAPE;
 		}
+		//else {
+		//	flags |= Block.UPDATE_KNOWN_SHAPE;
+		//}
 
 		boolean override = isFluidStateOverrided(toState) && canHandleFluid(toState, fluid);
 		if (override) {

@@ -2,11 +2,13 @@ package net.skds.physex;
 
 import lombok.experimental.UtilityClass;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Block;
 import net.skds.lib2.utils.ArrayUtils;
 
 @UtilityClass
 public class PhysExUtils {
 
+	public static final int NATURAL_BLOCK_FLAG = Block.UPDATE_KNOWN_SHAPE;
 
 	private static final Direction[][] SHUFFLE_H = {
 			{Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH},

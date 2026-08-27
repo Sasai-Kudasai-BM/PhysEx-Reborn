@@ -38,6 +38,7 @@ public class BlockPhysicsManager {
 		BlockPhysicsData physics = BlockPhysicsUtils.getPhysics(world, pos, bs);
 		if (physics.isNormal() && taskSet.add(pos)) {
 			BlockPhysicsChain chain = new BlockPhysicsChain(this, pos, bs, physics);
+			if (!chain.isValid()) return;
 			this.taskQueue.addLast(chain);
 			this.taskQueueSet.add(chain);
 		}
@@ -55,7 +56,7 @@ public class BlockPhysicsManager {
 		profiler.push("block physics check");
 		BlockPhysicsChain chain;
 		while ((chain = this.taskQueue.pollFirst()) != null) {
-			if (taskQueueSet.remove(chain)) {
+			if (taskQueueSet.remove(chain) && chain.isValid()) {
 				chain.tick();
 			}
 		}

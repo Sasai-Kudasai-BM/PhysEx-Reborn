@@ -39,17 +39,20 @@ public final class BlockPhysicsChain {
 
 	private final BlockPhysicsManager manager;
 	private final ServerLevel world;
-	private final BlockPos startPos;
-	private final long startPosL;
+
+	private BlockPos startPos;
+	private long startPosL;
 
 	private boolean success = false;
 
 	public BlockPhysicsChain(BlockPhysicsManager manager, BlockPos startPos, BlockState startState, BlockPhysicsData physics) {
-		this.startPos = startPos;
-		this.startPosL = startPos.asLong();
 		this.manager = manager;
 		this.world = manager.world;
-		pushNode(startPos.asLong(), physics.getDirMask(), 0, 0);
+		init(startPos, startState, physics);
+	}
+
+	public boolean isValid() {
+		return startPos != null;
 	}
 
 	private void pushNode(long pos, int dirMask, int distance, int flags) {
@@ -66,6 +69,36 @@ public final class BlockPhysicsChain {
 			stk = this.stackUp;
 		}
 		stk.pushNode(pos, dirMask, distance, flags);
+	}
+
+	private void init(BlockPos startPos, BlockState startState, BlockPhysicsData physics) {
+		cursor1.set(startPos);
+		BlockState state = startState;
+		BlockPhysicsData physicsData = physics;
+		while (true) {
+			manager.taskSet.remove(cursor1);
+			cursor2.setWithOffset(cursor1, 0, -1, 0);
+			BlockState state2 = world.getBlockState(cursor2);
+			BlockPhysicsData physicsData2 = getPhysics(cursor2, state2);
+			if (canCarry(state, cursor1, physicsData, state2, cursor2, physicsData2, Direction.DOWN, 0, 0)) {
+				if (physicsData2.isImmovable() || physicsData2.vanillaPhysics()) {
+					if (DEBUG) {
+						BlockPhysicsDebug.debug(startPos, Blocks.BEDROCK.defaultBlockState());
+					}
+					return;
+				}
+				cursor1.set(cursor2);
+				state = state2;
+				physicsData = physicsData2;
+			} else {
+				startPos = cursor1.immutable();
+				break;
+			}
+		}
+
+		this.startPos = startPos;
+		this.startPosL = startPos.asLong();
+		pushNode(this.startPosL, physicsData.getDirMask(), 0, 0);
 	}
 
 	private Stack nextStack() {
@@ -91,6 +124,9 @@ public final class BlockPhysicsChain {
 		Stack stk;
 		while ((stk = nextStack()) != null) {
 			if (--i <= 0) {
+				if (DEBUG) {
+					BlockPhysicsDebug.debug(startPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
+				}
 				System.err.println("Tragedy");
 				return;
 			}
@@ -106,24 +142,16 @@ public final class BlockPhysicsChain {
 			if (!nodeSet.remove(pos)) {
 				continue;
 			}
-
 			checkBlock(pos, mask, dist, flags);
 		}
 		if (DEBUG) {
 			if (success) {
-				BlockPhysicsDebug.debug(unwindCursor2, Blocks.BLUE_STAINED_GLASS.defaultBlockState());
+				BlockPhysicsDebug.debug(startPos, Blocks.BLUE_STAINED_GLASS.defaultBlockState());
 			} else {
 				BlockPhysicsDebug.debug(startPos, Blocks.RED_STAINED_GLASS.defaultBlockState());
+				//world.destroyBlock(startPos, false);
 			}
 		}
-		//if (!success && DEBUG) {
-		//	//cursor1.setWithOffset(startPos, Direction.DOWN);
-		//	//while (visited.containsKey(cursor1.asLong())) {
-		//	//	cursor1.move(Direction.DOWN);
-		//	//}
-		//	//cursor1.move(Direction.UP);
-		//	BlockPhysicsDebug.debug(startPos, Blocks.RED_STAINED_GLASS.defaultBlockState());
-		//}
 	}
 
 	private void stablePathCandidate(long pos, Direction value) {
@@ -158,7 +186,7 @@ public final class BlockPhysicsChain {
 				}
 			}
 		}
-		if ((mask & DIR_UP_MASK) != 0 && distance == 0) {
+		if ((mask & DIR_UP_MASK) != 0 && distance < physicsData.beam()) {
 			if (tryCarry(pos, state, physicsData, Direction.UP, 0, distance, flags)) {
 				return;
 			}
@@ -174,7 +202,6 @@ public final class BlockPhysicsChain {
 			for (Direction dir : DIRECTIONS) {
 				unwindCursor2.setWithOffset(unwindCursor1, dir);
 				long pl = unwindCursor2.asLong();
-				if (!unwindVisited.add(pl)) continue;
 				int mask = carryDirection.get(pl);
 				Direction opposite = dir.getOpposite();
 				for (int i = 0; i < DIRECTIONS.length && mask != 0; i++) {
@@ -186,6 +213,7 @@ public final class BlockPhysicsChain {
 							success = true;
 							return;
 						}
+						if (!unwindVisited.add(pl)) continue;
 						nodeSet.remove(pl);
 						unwindQueue.add(pl);
 						if (opposite == Direction.DOWN) {
