@@ -40,6 +40,8 @@ public class BlockPhysicsUtils {
 			| (1 << Direction.EAST.ordinal())
 			| (1 << Direction.WEST.ordinal());
 
+	public static final int DIR_ALL_MASK = ~(-1 << 6);
+
 	public static final TagKey<Block> VANILLA_BLOCK_PHYSICS_TAG = TagKey.create(Registries.BLOCK,
 			Identifier.fromNamespaceAndPath(PhysEx.MOD_ID, "vanilla_block_physics")
 	);

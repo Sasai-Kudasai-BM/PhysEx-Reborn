@@ -3,12 +3,10 @@ package net.skds.physex.blockphysics;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.level.block.state.BlockState;
-import net.skds.physex.PhysExUtils;
 
 import java.util.ArrayDeque;
 
@@ -46,10 +44,10 @@ public class BlockPhysicsManager {
 	}
 
 	public void blockUpdated(BlockPos pos) {
-		scheduleBlockCheck(pos);
-		for (Direction dir : PhysExUtils.randomAllUpFirst()) {
-			scheduleBlockCheck(pos.relative(dir));
-		}
+		//scheduleBlockCheck(pos);
+		//for (Direction dir : PhysExUtils.randomAllUpFirst()) {
+		//	scheduleBlockCheck(pos.relative(dir));
+		//}
 	}
 
 	public void tick() {

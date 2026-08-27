@@ -50,7 +50,7 @@ public record BlockStatePhysicsHolder(
 		}
 		sb.append("Natural dimensions:\n");
 		if (dimensionsNatural != null) for (var e : dimensionsNatural.entrySet()) {
-			sb.append(e.getKey()).append(": ").append(e.getValue().toStringFormatted()).append('\n');
+			sb.append(e.getKey().dimension().identifier()).append(": ").append(e.getValue().toStringFormatted()).append('\n');
 		}
 		return sb.toString();
 	}

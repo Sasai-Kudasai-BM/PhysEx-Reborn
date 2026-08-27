@@ -1,6 +1,6 @@
 package net.skds.physex.blockphysics;
 
-import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.core.BlockPos;
@@ -12,7 +12,6 @@ import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.skds.physex.PhysEx;
-import net.skds.physex.blockphysics.path.StablePathValue;
 
 import java.util.Arrays;
 
@@ -22,9 +21,6 @@ public final class BlockPhysicsChain {
 
 	private static final boolean DEBUG = PhysEx.DEBUG;
 
-	public static final int LONG_BEAM_FLAG = 1;
-	public static final int ARC_FLAG = 2;
-
 	private final BlockPos.MutableBlockPos cursor1 = new BlockPos.MutableBlockPos();
 	private final BlockPos.MutableBlockPos cursor2 = new BlockPos.MutableBlockPos();
 
@@ -32,11 +28,9 @@ public final class BlockPhysicsChain {
 	private final BlockPos.MutableBlockPos unwindCursor2 = new BlockPos.MutableBlockPos();
 
 	private final LongOpenHashSet visited = new LongOpenHashSet(16, .5f);
-	private final Long2IntOpenHashMap carryDirection = new Long2IntOpenHashMap(16, .5f);
-	private final LongOpenHashSet requireArcSupport = new LongOpenHashSet(16, .5f);
-	private final LongArrayList requireSupportCheck = new LongArrayList();
+	private final Long2ByteOpenHashMap carryDirection = new Long2ByteOpenHashMap(16, .5f);
+	private final LongOpenHashSet unwindVisited = new LongOpenHashSet(16, .5f);
 	private final LongArrayList unwindQueue = new LongArrayList(16);
-	private final LongOpenHashSet unwindPath = new LongOpenHashSet(16, .5f);
 
 	private Stack stack = new Stack();
 	private Stack stackUp = new Stack();
@@ -56,7 +50,6 @@ public final class BlockPhysicsChain {
 		this.manager = manager;
 		this.world = manager.world;
 		pushNode(startPos.asLong(), physics.getDirMask(), 0, 0);
-		visited.add(startPosL);
 	}
 
 	private void pushNode(long pos, int dirMask, int distance, int flags) {
@@ -94,14 +87,14 @@ public final class BlockPhysicsChain {
 		int dist;
 		int mask;
 		int flags;
-		int i = 1000;
+		int i = 15_000;
 		Stack stk;
 		while ((stk = nextStack()) != null) {
 			if (--i <= 0) {
 				System.err.println("Tragedy");
 				return;
 			}
-			if (success && checkSuccess()) {
+			if (success) {
 				break;
 			}
 			int head = stk.head;
@@ -116,134 +109,46 @@ public final class BlockPhysicsChain {
 
 			checkBlock(pos, mask, dist, flags);
 		}
-		if (!success && DEBUG) {
-			cursor1.setWithOffset(startPos, Direction.DOWN);
-			while (visited.contains(cursor1.asLong())) {
-				cursor1.move(Direction.DOWN);
-			}
-			cursor1.move(Direction.UP);
-			//world.destroyBlock(cursor1, false);
-			BlockPhysicsDebug.debug(cursor1, Blocks.RED_STAINED_GLASS.defaultBlockState());
-		}
-	}
-
-	private boolean haveConnection(int dirMask, Direction dir) {
-		while (dirMask != 0) {
-			StablePathValue spv = StablePathValue.byMask(dirMask);
-			dirMask >>>= StablePathValue.BITS;
-			Direction mskDir = spv.direction;
-			if (mskDir == dir) return true;
-		}
-		return false;
-	}
-
-	private boolean haveConnection(long lp, Direction dir) {
-		int dirMask = carryDirection.get(lp);
-		if (haveConnection(dirMask, dir)) {
-			return true;
-		}
-		cursor2.set(lp).move(dir);
-		long lp2 = cursor2.asLong();
-		if (!unwindPath.contains(lp2)) {
-			return false;
-		}
-		Direction opposite = dir.getOpposite();
-		dirMask = carryDirection.get(lp2);
-		return haveConnection(dirMask, opposite);
-	}
-
-	private int mask(Direction dir) {
-		return dir.getAxisDirection() == Direction.AxisDirection.POSITIVE ? 1 : 2;
-	}
-
-	private boolean checkArc(long lp) {
-		int x = 3;
-		int z = 3;
-
-		if (haveConnection(lp, Direction.DOWN)) {
-			return true;
-		}
-		for (Direction dir : DIR_HORIZONTAL) {
-			if (haveConnection(lp, dir)) {
-				switch (dir.getAxis()) {
-					case X -> x &= mask(dir);
-					case Z -> z &= mask(dir);
-				}
+		if (DEBUG) {
+			if (success) {
+				BlockPhysicsDebug.debug(unwindCursor2, Blocks.BLUE_STAINED_GLASS.defaultBlockState());
+			} else {
+				BlockPhysicsDebug.debug(startPos, Blocks.RED_STAINED_GLASS.defaultBlockState());
 			}
 		}
-		if (x == 0 || z == 0) return true;
-		boolean excludeX = x == 3;
-		boolean excludeZ = z == 3;
-		if (excludeX && excludeZ) return false;
-		if (haveConnection(lp, Direction.UP)) {
-			cursor1.set(lp).move(0, 1, 0);
-			long lp2 = cursor1.asLong();
-			for (Direction dir : DIR_HORIZONTAL) {
-				if (haveConnection(lp2, dir)) {
-					switch (dir.getAxis()) {
-						case X -> {
-							if (!excludeX) x &= mask(dir);
-						}
-						case Z -> {
-							if (!excludeZ) z &= mask(dir);
-						}
-					}
-				}
-			}
-		} else {
-			return false;
-		}
-		return x == 0 || z == 0;
-	}
-
-	private boolean checkSuccess() {
-		while (!requireSupportCheck.isEmpty()) {
-			long lp = requireSupportCheck.popLong();
-			if (!checkArc(lp)) {
-				if (DEBUG) {
-					BlockPhysicsDebug.debug(BlockPos.of(lp), Blocks.BLUE_STAINED_GLASS.defaultBlockState());
-				}
-				success = false;
-				return false;
-			}
-		}
-		return true;
+		//if (!success && DEBUG) {
+		//	//cursor1.setWithOffset(startPos, Direction.DOWN);
+		//	//while (visited.containsKey(cursor1.asLong())) {
+		//	//	cursor1.move(Direction.DOWN);
+		//	//}
+		//	//cursor1.move(Direction.UP);
+		//	BlockPhysicsDebug.debug(startPos, Blocks.RED_STAINED_GLASS.defaultBlockState());
+		//}
 	}
 
 	private void stablePathCandidate(long pos, Direction value) {
 		int mask = carryDirection.get(pos);
-		if (mask != 0) {
-			mask <<= StablePathValue.BITS;
-		}
-		mask |= value.ordinal() + 1;
-		this.carryDirection.put(pos, mask);
+		mask |= 1 << value.ordinal();
+		this.carryDirection.put(pos, (byte) mask);
 	}
 
 	private void checkBlock(long pos, int mask, int distance, int flags) {
 		visited.add(pos);
 		cursor1.set(pos);
 		manager.taskSet.remove(cursor1);
-		if (DEBUG) {
-			BlockPhysicsDebug.debug(cursor1, Blocks.GLASS.defaultBlockState());
-		}
+		//if (DEBUG) {
+		//	BlockPhysicsDebug.debug(cursor1, Blocks.GLASS.defaultBlockState());
+		//}
 		BlockState state = world.getBlockState(cursor1);
 		BlockPhysicsData physicsData = getPhysics(cursor1, state);
 		if (!physicsData.isNormal()) return;
 		if ((mask & DIR_DOWN_MASK) != 0) {
 			mask = removeDirection(mask, Direction.DOWN);
-			if (tryCarry(pos, state, physicsData, Direction.DOWN, mask, distance / 2, flags & ~LONG_BEAM_FLAG)) {
+			if (tryCarry(pos, state, physicsData, Direction.DOWN, mask, distance, flags)) {
 				return;
 			}
 		}
 		if ((mask & DIR_HORIZONTAL_MASK) != 0 && physicsData.haveLateralStrength()) {
-			if (physicsData.beam() < physicsData.arc()) {
-				if ((flags & ARC_FLAG) == 0) {
-					distance = 0;
-				}
-				flags |= ARC_FLAG;
-				mask |= DIR_UP_MASK;
-				requireArcSupport.add(pos);
-			}
 			for (Direction dir : DIR_HORIZONTAL) {
 				int newMask;
 				if ((newMask = removeDirection(mask, dir)) == mask) continue;
@@ -253,36 +158,27 @@ public final class BlockPhysicsChain {
 				}
 			}
 		}
-		if ((mask & DIR_UP_MASK) != 0) {
-			if ((flags & ARC_FLAG) != 0) {
-				distance = 0;
+		if ((mask & DIR_UP_MASK) != 0 && distance == 0) {
+			if (tryCarry(pos, state, physicsData, Direction.UP, 0, distance, flags)) {
+				return;
 			}
-			//mask = removeDirection(mask, Direction.UP);
-			tryCarry(pos, state, physicsData, Direction.UP, 0, distance, flags & ~LONG_BEAM_FLAG);
 		}
+		visited.remove(pos);
 	}
 
 	void unwind(long pos) {
 		unwindQueue.add(pos);
-		boolean normal = true;
 		do {
-			long lp = unwindQueue.popLong();
-			unwindCursor1.set(lp);
+			unwindCursor1.set(unwindQueue.popLong());
+			br:
 			for (Direction dir : DIRECTIONS) {
 				unwindCursor2.setWithOffset(unwindCursor1, dir);
 				long pl = unwindCursor2.asLong();
+				if (!unwindVisited.add(pl)) continue;
 				int mask = carryDirection.get(pl);
-				while (mask != 0) {
-					StablePathValue value = StablePathValue.byMask(mask);
-					mask >>>= StablePathValue.BITS;
-					Direction opposite = dir.getOpposite();
-					if (opposite == value.direction) {
-						boolean singlePath = !requireArcSupport.contains(pl);
-						if (!singlePath) {
-							normal = false;
-							requireSupportCheck.add(pl);
-						}
-						unwindPath.add(pl);
+				Direction opposite = dir.getOpposite();
+				for (int i = 0; i < DIRECTIONS.length && mask != 0; i++) {
+					if ((mask & 1) != 0 && opposite == DIRECTIONS[i]) {
 						if (DEBUG) {
 							BlockPhysicsDebug.debug(unwindCursor2, Blocks.LIME_STAINED_GLASS.defaultBlockState());
 						}
@@ -290,11 +186,16 @@ public final class BlockPhysicsChain {
 							success = true;
 							return;
 						}
-						if (normal) {
-							nodeSet.remove(pl);
-						}
+						nodeSet.remove(pl);
 						unwindQueue.add(pl);
+						if (opposite == Direction.DOWN) {
+							//if (DEBUG) {
+							//	BlockPhysicsDebug.debug(unwindCursor1, Blocks.LAPIS_BLOCK.defaultBlockState());
+							//}
+							break br;
+						}
 					}
+					mask >>>= 1;
 				}
 			}
 		} while (!unwindQueue.isEmpty());
@@ -313,19 +214,25 @@ public final class BlockPhysicsChain {
 		if (visited.contains(p2l)) return false;
 		BlockState state2 = world.getBlockState(cursor2);
 		BlockPhysicsData physicsData2 = getPhysics(cursor2, state2);
-		if (canCarry(state, cursor1, physicsData, state2, cursor2, physicsData2, direction, distance, flags)) {
+		int nextDist = distance;
+		if (direction.getAxis().isHorizontal() && physicsData2.beam() >= physicsData.beam()) {
+			nextDist++;
+		}
+		if (canCarry(state, cursor1, physicsData, state2, cursor2, physicsData2, direction, nextDist, flags)) {
 			stablePathCandidate(p1l, direction);
 			if (physicsData2.isImmovable() || physicsData2.vanillaPhysics()) {
 				unwind(p2l);
 				return true;
 			}
+			if (direction != Direction.DOWN) {
+				pushNode(p2l, removeDirection(physicsData2.getDirMask(), direction.getOpposite()), nextDist, flags);
+			}
 			if (mask != 0) {
 				pushNode(p1l, mask, distance, flags);
 			}
-			if (direction.getAxis().isHorizontal()) {
-				distance++;
+			if (direction == Direction.DOWN) {
+				pushNode(p2l, removeDirection(physicsData2.getDirMask(), direction.getOpposite()), 0, flags);
 			}
-			pushNode(p2l, removeDirection(physicsData2.getDirMask(), direction.getOpposite()), distance, flags);
 			return true;
 		}
 		return false;
@@ -348,14 +255,12 @@ public final class BlockPhysicsChain {
 			if (!physicsData.haveLateralStrength() || !carryPhysicsData.haveLateralStrength()) {
 				return false;
 			}
-			if ((flags & LONG_BEAM_FLAG) == 0 || !physicsData.longBeam() || !carryPhysicsData.longBeam()) {
-				if (physicsData.lateralLimit() < distance || carryPhysicsData.lateralLimit() < distance) {
-					return false;
-				}
+			if (physicsData.beam() < distance || carryPhysicsData.beam() < distance) {
+				return false;
 			}
 		} else {
 			if (direction == Direction.UP) {
-				if ((flags & ARC_FLAG) == 0 && (!physicsData.hang() || !carryPhysicsData.hang())) {
+				if (!physicsData.hang() || !carryPhysicsData.hang()) {
 					return false;
 				}
 			}

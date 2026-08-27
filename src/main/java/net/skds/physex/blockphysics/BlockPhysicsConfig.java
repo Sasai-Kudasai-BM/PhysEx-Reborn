@@ -24,11 +24,7 @@ public class BlockPhysicsConfig {
 
 	private static final int VERSION = 3;
 
-	private float arcCompressionThreshold = 1;
-	private float arcTensileThreshold = .1f;
-	private float arcTensileFactor = 1;
-	private float beamFactor = .3f;
-	private int longBeamThreshold = 5;
+	private float beamFactor = 1.5f;
 	private float hangThreshold = 1;
 	private float slideFactor = 0.1f;
 	private float reinforcedDirtFactor = 4f;
@@ -69,7 +65,7 @@ public class BlockPhysicsConfig {
 
 	public static BlockPhysicsConfig load() {
 		try {
-			if (Files.exists(PATH)) {
+			if (Files.exists(PATH) && false) {
 				String text = Files.readString(PATH);
 				BlockPhysicsConfig cfg = SosisonUtils.parseJson(text, BlockPhysicsConfig.class);
 				Objects.requireNonNull(cfg);
