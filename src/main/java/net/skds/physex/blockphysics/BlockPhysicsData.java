@@ -63,7 +63,6 @@ public record BlockPhysicsData(
 		int slide = (int) (cfg.getSlideFactor() / normalizedTensile);
 		if (slide > 5) slide = 5;
 		if (arc > 3) arc = 3;
-		arc *= 2;
 		return new BlockPhysicsData(
 				arc,
 				beam,

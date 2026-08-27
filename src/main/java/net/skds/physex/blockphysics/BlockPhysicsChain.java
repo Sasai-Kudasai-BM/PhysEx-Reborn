@@ -122,6 +122,7 @@ public final class BlockPhysicsChain {
 				cursor1.move(Direction.DOWN);
 			}
 			cursor1.move(Direction.UP);
+			//world.destroyBlock(cursor1, false);
 			BlockPhysicsDebug.debug(cursor1, Blocks.RED_STAINED_GLASS.defaultBlockState());
 		}
 	}
@@ -171,14 +172,21 @@ public final class BlockPhysicsChain {
 			}
 		}
 		if (x == 0 || z == 0) return true;
+		boolean excludeX = x == 3;
+		boolean excludeZ = z == 3;
+		if (excludeX && excludeZ) return false;
 		if (haveConnection(lp, Direction.UP)) {
 			cursor1.set(lp).move(0, 1, 0);
 			long lp2 = cursor1.asLong();
 			for (Direction dir : DIR_HORIZONTAL) {
 				if (haveConnection(lp2, dir)) {
 					switch (dir.getAxis()) {
-						case X -> x &= mask(dir);
-						case Z -> z &= mask(dir);
+						case X -> {
+							if (!excludeX) x &= mask(dir);
+						}
+						case Z -> {
+							if (!excludeZ) z &= mask(dir);
+						}
 					}
 				}
 			}
@@ -229,9 +237,11 @@ public final class BlockPhysicsChain {
 		}
 		if ((mask & DIR_HORIZONTAL_MASK) != 0 && physicsData.haveLateralStrength()) {
 			if (physicsData.beam() < physicsData.arc()) {
+				if ((flags & ARC_FLAG) == 0) {
+					distance = 0;
+				}
 				flags |= ARC_FLAG;
 				mask |= DIR_UP_MASK;
-				distance = 0;
 				requireArcSupport.add(pos);
 			}
 			for (Direction dir : DIR_HORIZONTAL) {
@@ -339,7 +349,7 @@ public final class BlockPhysicsChain {
 				return false;
 			}
 			if ((flags & LONG_BEAM_FLAG) == 0 || !physicsData.longBeam() || !carryPhysicsData.longBeam()) {
-				if (physicsData.lateralLimit() <= distance || carryPhysicsData.lateralLimit() <= distance) {
+				if (physicsData.lateralLimit() < distance || carryPhysicsData.lateralLimit() < distance) {
 					return false;
 				}
 			}
