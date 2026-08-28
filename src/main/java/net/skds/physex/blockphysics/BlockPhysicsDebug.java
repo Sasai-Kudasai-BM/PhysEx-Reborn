@@ -13,6 +13,10 @@ import org.joml.Vector3f;
 
 public class BlockPhysicsDebug {
 
+	public static void debug(long pos, BlockState bs) {
+		debug(BlockPos.of(pos), bs);
+	}
+
 	public static void debug(BlockPos pos, BlockState bs) {
 		ClientLevel lvl = Minecraft.getInstance().level;
 		Display.BlockDisplay display = new Display.BlockDisplay(EntityType.BLOCK_DISPLAY, lvl) {

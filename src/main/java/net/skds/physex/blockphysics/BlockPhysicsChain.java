@@ -1,8 +1,10 @@
 package net.skds.physex.blockphysics;
 
 import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -20,39 +22,46 @@ import static net.skds.physex.blockphysics.BlockPhysicsUtils.*;
 public final class BlockPhysicsChain {
 
 	private static final boolean DEBUG = PhysEx.DEBUG;
+	private static final int INITIAL_SIZE = 256;
 
 	private final BlockPos.MutableBlockPos cursor1 = new BlockPos.MutableBlockPos();
 	private final BlockPos.MutableBlockPos cursor2 = new BlockPos.MutableBlockPos();
-
 	private final BlockPos.MutableBlockPos unwindCursor1 = new BlockPos.MutableBlockPos();
 	private final BlockPos.MutableBlockPos unwindCursor2 = new BlockPos.MutableBlockPos();
 
-	private final LongOpenHashSet visited = new LongOpenHashSet(16, .5f);
-	private final Long2ByteOpenHashMap carryDirection = new Long2ByteOpenHashMap(16, .5f);
-	private final LongOpenHashSet unwindVisited = new LongOpenHashSet(16, .5f);
-	private final LongArrayList unwindQueue = new LongArrayList(16);
+	private final LongOpenHashSet visited = new LongOpenHashSet(INITIAL_SIZE, .5f);
+	private final Long2ByteOpenHashMap carryDirection = new Long2ByteOpenHashMap(INITIAL_SIZE, .5f);
+	private final LongOpenHashSet unwindVisited = new LongOpenHashSet(INITIAL_SIZE, .5f);
+	private final LongArrayList unwindQueue = new LongArrayList(INITIAL_SIZE);
+	private final Long2ObjectOpenHashMap<BlockState> blockStateCache = new Long2ObjectOpenHashMap<>(INITIAL_SIZE, .5f);
 
+	private final LongOpenHashSet nodeSet = new LongOpenHashSet(INITIAL_SIZE, .5f);
 	private Stack stack = new Stack();
 	private Stack stackUp = new Stack();
-
-	private final LongOpenHashSet nodeSet = new LongOpenHashSet(16, .5f);
 
 	private final BlockPhysicsManager manager;
 	private final ServerLevel world;
 
-	private BlockPos startPos;
-	private long startPosL;
+	private long startPos;
+	private boolean hold = false;
+	@Getter
+	private PhysicsChainState state = PhysicsChainState.WAIT;
+	@Getter
+	private BlockFallInfo fall = null;
 
-	private boolean success = false;
-
-	public BlockPhysicsChain(BlockPhysicsManager manager, BlockPos startPos, BlockState startState, BlockPhysicsData physics) {
+	public BlockPhysicsChain(BlockPhysicsManager manager) {
 		this.manager = manager;
 		this.world = manager.world;
-		init(startPos, startState, physics);
 	}
 
-	public boolean isValid() {
-		return startPos != null;
+	public boolean willFall() {
+		return !hold;
+	}
+
+	private void done(boolean success) {
+		this.fall = new BlockFallInfo(startPos, Direction.DOWN);
+		this.hold = success;
+		this.state = PhysicsChainState.DONE;
 	}
 
 	private void pushNode(long pos, int dirMask, int distance, int flags) {
@@ -71,34 +80,38 @@ public final class BlockPhysicsChain {
 		stk.pushNode(pos, dirMask, distance, flags);
 	}
 
-	private void init(BlockPos startPos, BlockState startState, BlockPhysicsData physics) {
+	public boolean init(long startPos) {
+		clear();
 		cursor1.set(startPos);
-		BlockState state = startState;
-		BlockPhysicsData physicsData = physics;
+		BlockState state = getBlockState(cursor1, startPos);
+		BlockPhysicsData physicsData = getPhysics(cursor1, state);
+		if (!physicsData.isNormal()) {
+			return false;
+		}
 		while (true) {
-			manager.taskSet.remove(cursor1);
+			manager.taskSet.remove(startPos);
 			cursor2.setWithOffset(cursor1, 0, -1, 0);
-			BlockState state2 = world.getBlockState(cursor2);
+			BlockState state2 = getBlockState(cursor2);
 			BlockPhysicsData physicsData2 = getPhysics(cursor2, state2);
 			if (canCarry(state, cursor1, physicsData, state2, cursor2, physicsData2, Direction.DOWN, 0, 0)) {
 				if (physicsData2.isImmovable() || physicsData2.vanillaPhysics()) {
 					if (DEBUG) {
-						BlockPhysicsDebug.debug(startPos, Blocks.BEDROCK.defaultBlockState());
+						BlockPhysicsDebug.debug(cursor1, Blocks.BEDROCK.defaultBlockState());
 					}
-					return;
+					return false;
 				}
 				cursor1.set(cursor2);
 				state = state2;
 				physicsData = physicsData2;
 			} else {
-				startPos = cursor1.immutable();
+				startPos = cursor1.asLong();
 				break;
 			}
 		}
 
 		this.startPos = startPos;
-		this.startPosL = startPos.asLong();
-		pushNode(this.startPosL, physicsData.getDirMask(), 0, 0);
+		pushNode(this.startPos, physicsData.getDirMask(), 0, 0);
+		return true;
 	}
 
 	private Stack nextStack() {
@@ -115,7 +128,27 @@ public final class BlockPhysicsChain {
 		return current;
 	}
 
+	public void nextTick() {
+		blockStateCache.clear();
+		tick();
+	}
+
+	public void clear() {
+		this.visited.clear();
+		this.carryDirection.clear();
+		this.unwindVisited.clear();
+		this.unwindQueue.clear();
+		this.blockStateCache.clear();
+		this.nodeSet.clear();
+		this.stack.clear();
+		this.stackUp.clear();
+		this.hold = false;
+		this.fall = null;
+		this.state = PhysicsChainState.WAIT;
+	}
+
 	public void tick() {
+		if (state == PhysicsChainState.WORKING_NEXT_TICK) state = PhysicsChainState.WORKING;
 		long pos;
 		int dist;
 		int mask;
@@ -127,10 +160,10 @@ public final class BlockPhysicsChain {
 				if (DEBUG) {
 					BlockPhysicsDebug.debug(startPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
 				}
-				System.err.println("Tragedy");
+				state = PhysicsChainState.WORKING_NEXT_TICK;
 				return;
 			}
-			if (success) {
+			if (hold) {
 				break;
 			}
 			int head = stk.head;
@@ -144,8 +177,11 @@ public final class BlockPhysicsChain {
 			}
 			checkBlock(pos, mask, dist, flags);
 		}
+		if (state != PhysicsChainState.DONE) {
+			done(false);
+		}
 		if (DEBUG) {
-			if (success) {
+			if (hold) {
 				BlockPhysicsDebug.debug(startPos, Blocks.BLUE_STAINED_GLASS.defaultBlockState());
 			} else {
 				BlockPhysicsDebug.debug(startPos, Blocks.RED_STAINED_GLASS.defaultBlockState());
@@ -163,11 +199,11 @@ public final class BlockPhysicsChain {
 	private void checkBlock(long pos, int mask, int distance, int flags) {
 		visited.add(pos);
 		cursor1.set(pos);
-		manager.taskSet.remove(cursor1);
+		//manager.taskSet.remove(pos);
 		//if (DEBUG) {
 		//	BlockPhysicsDebug.debug(cursor1, Blocks.GLASS.defaultBlockState());
 		//}
-		BlockState state = world.getBlockState(cursor1);
+		BlockState state = getBlockState(cursor1);
 		BlockPhysicsData physicsData = getPhysics(cursor1, state);
 		if (!physicsData.isNormal()) return;
 		if ((mask & DIR_DOWN_MASK) != 0) {
@@ -176,7 +212,7 @@ public final class BlockPhysicsChain {
 				return;
 			}
 		}
-		if ((mask & DIR_HORIZONTAL_MASK) != 0 && physicsData.haveLateralStrength()) {
+		if ((mask & DIR_HORIZONTAL_MASK) != 0) {
 			for (Direction dir : DIR_HORIZONTAL) {
 				int newMask;
 				if ((newMask = removeDirection(mask, dir)) == mask) continue;
@@ -206,11 +242,11 @@ public final class BlockPhysicsChain {
 				Direction opposite = dir.getOpposite();
 				for (int i = 0; i < DIRECTIONS.length && mask != 0; i++) {
 					if ((mask & 1) != 0 && opposite == DIRECTIONS[i]) {
-						if (DEBUG) {
-							BlockPhysicsDebug.debug(unwindCursor2, Blocks.LIME_STAINED_GLASS.defaultBlockState());
-						}
-						if (pl == startPosL) {
-							success = true;
+						//if (DEBUG) {
+						//	BlockPhysicsDebug.debug(unwindCursor2, Blocks.LIME_STAINED_GLASS.defaultBlockState());
+						//}
+						if (pl == startPos) {
+							done(true);
 							return;
 						}
 						if (!unwindVisited.add(pl)) continue;
@@ -240,7 +276,7 @@ public final class BlockPhysicsChain {
 		cursor2.setWithOffset(cursor1, direction);
 		long p2l = cursor2.asLong();
 		if (visited.contains(p2l)) return false;
-		BlockState state2 = world.getBlockState(cursor2);
+		BlockState state2 = getBlockState(cursor2);
 		BlockPhysicsData physicsData2 = getPhysics(cursor2, state2);
 		int nextDist = distance;
 		if (direction.getAxis().isHorizontal() && physicsData2.beam() >= physicsData.beam()) {
@@ -288,7 +324,7 @@ public final class BlockPhysicsChain {
 			}
 		} else {
 			if (direction == Direction.UP) {
-				if (!physicsData.hang() || !carryPhysicsData.hang()) {
+				if (!physicsData.tensile() || !carryPhysicsData.tensile()) {
 					return false;
 				}
 			}
@@ -303,9 +339,9 @@ public final class BlockPhysicsChain {
 	                            BlockPos carryPos,
 	                            Direction dir
 	) {
-		VoxelShape shape = state.getShape(world, pos);
+		VoxelShape shape = state.getCollisionShape(world, pos);
 		if (shape.isEmpty()) return false;
-		VoxelShape shape2 = carryState.getShape(world, carryPos);
+		VoxelShape shape2 = carryState.getCollisionShape(world, carryPos);
 		if (shape2.isEmpty()) return false;
 		VoxelShape block = Shapes.block();
 		if (shape == block && shape2 == block) {
@@ -320,6 +356,27 @@ public final class BlockPhysicsChain {
 				),
 				BooleanOp.AND
 		);
+	}
+
+	private BlockState getBlockState(BlockPos pos) {
+		long lp = pos.asLong();
+		if (manager.fallBlockSet.contains(lp)) return AIR;
+		BlockState state = blockStateCache.get(lp);
+		if (state == null) {
+			state = world.getBlockState(pos);
+			blockStateCache.put(lp, state);
+		}
+		return state;
+	}
+
+	private BlockState getBlockState(BlockPos pos, long lp) {
+		if (manager.fallBlockSet.contains(lp)) return AIR;
+		BlockState state = blockStateCache.get(lp);
+		if (state == null) {
+			state = world.getBlockState(pos);
+			blockStateCache.put(lp, state);
+		}
+		return state;
 	}
 
 	private BlockPhysicsData getPhysics(BlockPos pos, BlockState state) {
@@ -351,6 +408,10 @@ public final class BlockPhysicsChain {
 
 		private boolean isEmpty() {
 			return head < 0;
+		}
+
+		private void clear() {
+			this.head = -1;
 		}
 	}
 }

@@ -7,12 +7,13 @@ public record BlockPhysicsData(
 		int slideInstability,
 		float mass,
 		float durability,
-		boolean hang,
+		boolean tensile,
+		boolean compression,
 		boolean vanillaPhysics
 ) {
 
-	public static final BlockPhysicsData IMMOVABLE = new BlockPhysicsData(0, 5000, 0, 0, false, false);
-	public static final BlockPhysicsData AIR = new BlockPhysicsData(0, 1, 0, 0, false, false);
+	public static final BlockPhysicsData IMMOVABLE = new BlockPhysicsData(0, 5000, 0, 0, true, true, false);
+	public static final BlockPhysicsData AIR = new BlockPhysicsData(0, 1, 0, 0, true, true, false);
 
 	public static BlockPhysicsData merge(BlockPhysicsData original, BlockPhysicsData fallback, BlockPhysicsData changes) {
 		if (original == null) original = fallback;
@@ -21,7 +22,8 @@ public record BlockPhysicsData(
 				changes.slideInstability < 0 ? original.slideInstability : changes.slideInstability,
 				changes.mass < 0 ? original.mass : changes.mass,
 				changes.durability < 0 ? original.durability : changes.durability,
-				changes.hang,
+				changes.tensile,
+				changes.compression,
 				changes.vanillaPhysics
 		);
 	}
@@ -35,6 +37,7 @@ public record BlockPhysicsData(
 				mass,
 				durability,
 				false,
+				true,
 				true
 		);
 	}
@@ -47,7 +50,8 @@ public record BlockPhysicsData(
 		float beamStrength = (float) Math.sqrt(Math.min(normalizedCompression, normalizedTensile));
 		int beam = (int) (beamStrength * cfg.getBeamFactor());
 		float durability = compressionStrength + tensileStrength;
-		boolean hang = normalizedTensile > cfg.getHangThreshold();
+		boolean tensile = normalizedTensile > cfg.getTensileThreshold();
+		boolean compression = normalizedCompression > cfg.getCompressionThreshold();
 		int slide = (int) (cfg.getSlideFactor() / normalizedTensile);
 		if (slide > 5) slide = 5;
 		return new BlockPhysicsData(
@@ -55,7 +59,8 @@ public record BlockPhysicsData(
 				slide,
 				mass,
 				durability,
-				hang,
+				tensile,
+				compression,
 				false
 		);
 	}
@@ -72,7 +77,7 @@ public record BlockPhysicsData(
 				", slide=" + slideInstability +
 				", m=" + mass +
 				String.format(Locale.US, ", dur=%.2f", durability) +
-				", hng=" + hang +
+				", hng=" + tensile +
 				"]";
 	}
 
@@ -92,18 +97,17 @@ public record BlockPhysicsData(
 		return this == IMMOVABLE;
 	}
 
-	public int getDirMaskNoDown() {
+	public int getDirMask() {
 		int mask = 0;
 		if (haveLateralStrength()) {
 			mask = BlockPhysicsUtils.DIR_HORIZONTAL_MASK;
 		}
-		if (hang) {
+		if (tensile) {
 			mask |= BlockPhysicsUtils.DIR_UP_MASK;
 		}
+		if (compression) {
+			mask |= BlockPhysicsUtils.DIR_DOWN_MASK;
+		}
 		return mask;
-	}
-
-	public int getDirMask() {
-		return BlockPhysicsUtils.DIR_DOWN_MASK | getDirMaskNoDown();
 	}
 }

@@ -25,7 +25,8 @@ public class BlockPhysicsConfig {
 	private static final int VERSION = 3;
 
 	private float beamFactor = 1.5f;
-	private float hangThreshold = 1;
+	private float tensileThreshold = 1;
+	private float compressionThreshold = 1;
 	private float slideFactor = 0.1f;
 	private float reinforcedDirtFactor = 4f;
 

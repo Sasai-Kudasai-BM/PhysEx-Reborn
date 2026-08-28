@@ -22,31 +22,31 @@ public class BuiltinPhysicsConfig {
 	static BlockPhysicsConfig.Group[] builtinGroups() {
 		return new BlockPhysicsConfig.Group[]{
 				new BlockPhysicsConfig.Group(STAND_STILL_PHYSICS_TAG, null, false, false,
-						new BlockPhysicsData(0, 0, -1, -1, false, false)),
+						new BlockPhysicsData(0, 0, -1, -1, false, true, false)),
 
 				new BlockPhysicsConfig.Group(REINFORCED_DIRT_TAG, null, false, false,
-						new BlockPhysicsData(-1, 0, -1, -1, false, false)),
+						new BlockPhysicsData(-1, 0, -1, -1, false, true, false)),
 
 				new BlockPhysicsConfig.Group(OVERWORLD_NATURAL_STONE_TAG, Level.OVERWORLD, false, true,
-						new BlockPhysicsData(2, 0, -1, -1, true, false)),
+						new BlockPhysicsData(2, 0, -1, -1, true, true, false)),
 
 				new BlockPhysicsConfig.Group(END_NATURAL_STONE_TAG, Level.END, false, true,
-						new BlockPhysicsData(0, 0, -1, -1, false, true)),
+						new BlockPhysicsData(0, 0, -1, -1, false, true, true)),
 
 				new BlockPhysicsConfig.Group(END_NATURAL_BRICKS_TAG, Level.END, false, true,
-						new BlockPhysicsData(10, 0, -1, -1, true, false)),
+						new BlockPhysicsData(10, 0, -1, -1, true, true, false)),
 
 				new BlockPhysicsConfig.Group(NETHER_NATURAL_STONE_TAG, Level.NETHER, false, true,
-						new BlockPhysicsData(0, 0, -1, -1, false, true)),
+						new BlockPhysicsData(0, 0, -1, -1, false, true, true)),
 
 				new BlockPhysicsConfig.Group(NETHER_NATURAL_GLOWSTONE_TAG, Level.NETHER, false, true,
-						new BlockPhysicsData(0, 0, -1, -1, false, true)),
+						new BlockPhysicsData(0, 0, -1, -1, false, true, true)),
 
 				new BlockPhysicsConfig.Group(NETHER_NATURAL_SAND_TAG, Level.NETHER, false, true,
-						new BlockPhysicsData(0, 0, -1, -1, false, true)),
+						new BlockPhysicsData(0, 0, -1, -1, false, true, true)),
 
 				new BlockPhysicsConfig.Group(NETHER_NATURAL_BRICKS_TAG, Level.NETHER, false, true,
-						new BlockPhysicsData(10, 0, -1, -1, true, false)),
+						new BlockPhysicsData(10, 0, -1, -1, true, true, false)),
 		};
 	}
 

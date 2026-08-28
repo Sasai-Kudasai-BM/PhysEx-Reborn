@@ -15,6 +15,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.skds.lib2.utils.collection.Deduplicator;
 import net.skds.lib2.utils.collection.HashDeduplicator;
@@ -27,6 +28,7 @@ import java.util.Set;
 @UtilityClass
 public class BlockPhysicsUtils {
 
+	public static final BlockState AIR = Blocks.AIR.defaultBlockState();
 	public static final Direction[] DIR_HORIZONTAL = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
 	public static final Direction[] DIRECTIONS = Direction.values();
 
