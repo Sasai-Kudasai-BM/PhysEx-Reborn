@@ -360,7 +360,6 @@ public final class BlockPhysicsChain {
 
 	private BlockState getBlockState(BlockPos pos) {
 		long lp = pos.asLong();
-		if (manager.fallBlockSet.contains(lp)) return AIR;
 		BlockState state = blockStateCache.get(lp);
 		if (state == null) {
 			state = world.getBlockState(pos);
@@ -370,7 +369,6 @@ public final class BlockPhysicsChain {
 	}
 
 	private BlockState getBlockState(BlockPos pos, long lp) {
-		if (manager.fallBlockSet.contains(lp)) return AIR;
 		BlockState state = blockStateCache.get(lp);
 		if (state == null) {
 			state = world.getBlockState(pos);

@@ -70,4 +70,10 @@ public class PhysExUtils {
 		return ArrayUtils.getRandom(SHUFFLE_UP_FIRST);
 	}
 
+	public static boolean isArrayEmpty(byte[] array) {
+		for (byte b : array) {
+			if (b != 0) return false;
+		}
+		return true;
+	}
 }

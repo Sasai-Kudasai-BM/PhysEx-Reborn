@@ -28,6 +28,7 @@ import net.minecraft.world.level.block.piston.PistonStructureResolver;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
@@ -104,6 +105,14 @@ public class FluidUtils {
 		if (x > 0) cx = Direction.EAST;
 		if (z > 0) cz = Direction.SOUTH;
 		return FastMath.RANDOM.nextBoolean() ? cx : cz;
+	}
+
+	public static FluidState getFsOrVanilla(BlockPos pos, LevelChunk chunk, BlockState blockState) {
+		if (FLUID_CHUNK_LAYER) {
+			FluidState fs = FluidLayer.getFluidState(pos.getX(), pos.getY(), pos.getZ(), chunk);
+			if (fs != null) return fs;
+		}
+		return blockState.getFluidState();
 	}
 
 	public static boolean pistonHook(ServerLevel world, PistonStructureResolver pistonStructureResolver, BlockPos blockPos, Direction pistonDirection) {

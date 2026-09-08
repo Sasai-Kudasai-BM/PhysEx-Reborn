@@ -17,6 +17,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.skds.physex.PhysEx;
 import net.skds.physex.blockphysics.BlockPhysicsManager;
+import net.skds.physex.blockphysics.BlockPhysicsUtils;
 import net.skds.physex.blockphysics.BlockStatePhysicsHolder;
 
 public class BlockPhysicsDebugItem extends Item {
@@ -30,9 +31,17 @@ public class BlockPhysicsDebugItem extends Item {
 		if (!useOnContext.getLevel().isClientSide() && useOnContext.getPlayer() != null) {
 			BlockPos blockPos = useOnContext.getClickedPos();
 			BlockStatePhysicsHolder physicsData = BlockStatePhysicsHolder.get(useOnContext.getLevel().getBlockState(blockPos));
-			useOnContext.getPlayer().displayClientMessage(Component.literal(physicsData.toStringFormatted()), false);
+			useOnContext.getPlayer().displayClientMessage(
+					Component.literal(physicsData.toStringFormatted())
+							.append(natural(BlockPhysicsUtils.isNatural((ServerLevel) useOnContext.getLevel(), blockPos))),
+					false
+			);
 		}
 		return InteractionResult.SUCCESS;
+	}
+
+	private String natural(boolean value) {
+		return value ? "NATURAL" : "ARTIFICIAL";
 	}
 
 	@Override

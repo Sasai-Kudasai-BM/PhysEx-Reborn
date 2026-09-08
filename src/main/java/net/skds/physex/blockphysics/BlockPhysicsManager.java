@@ -8,17 +8,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
 
-import java.util.ArrayDeque;
-
 public class BlockPhysicsManager {
 
 	final ServerLevel world;
 	final LongOpenHashSet taskSet = new LongOpenHashSet(256, .5f);
-	final LongOpenHashSet fallBlockSet = new LongOpenHashSet(256, .5f);
-	private final ArrayDeque<BlockFallInfo> fallBlocks = new ArrayDeque<>(256);
 	private final LongArrayFIFOQueue taskQueue = new LongArrayFIFOQueue(256);
 	private final BlockPhysicsChain chain;
-	private final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+	private final BlockPos.MutableBlockPos cursor1 = new BlockPos.MutableBlockPos();
 
 	public BlockPhysicsManager(ServerLevel world) {
 		this.world = world;
@@ -61,26 +57,11 @@ public class BlockPhysicsManager {
 				willFall(chain.getFall());
 			}
 		}
-		profiler.popPush("block physics breaking blocks");
-		fallBlocks();
 		profiler.pop();
 	}
 
 	private void willFall(BlockFallInfo bfi) {
-		cursor.set(bfi.pos());
-		world.setBlock(cursor, BlockPhysicsUtils.AIR, 3);
-		//if (fallBlockSet.add(bfi.pos())) {
-		//	fallBlocks.addLast(bfi);
-		//}
-	}
-
-	private void fallBlocks() {
-		BlockFallInfo bfi;
-		while ((bfi = fallBlocks.pollFirst()) != null) {
-			long p = bfi.pos();
-			if (!fallBlockSet.remove(p)) continue;
-			cursor.set(p);
-			world.setBlock(cursor, BlockPhysicsUtils.AIR, 3);
-		}
+		cursor1.set(bfi.pos());
+		world.setBlock(cursor1, BlockPhysicsUtils.AIR, 3);
 	}
 }

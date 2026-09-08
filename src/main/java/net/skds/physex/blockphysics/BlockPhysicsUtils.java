@@ -17,9 +17,14 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.skds.lib2.utils.collection.Deduplicator;
 import net.skds.lib2.utils.collection.HashDeduplicator;
 import net.skds.physex.PhysEx;
+import net.skds.physex.blockphysics.chunk.BPChunkAttachment;
+import net.skds.physex.blockphysics.chunk.BPChunkSection;
+import net.skds.physex.blockphysics.path.StablePath;
+import net.skds.physex.utils.PXChunkAttachments;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,7 +58,72 @@ public class BlockPhysicsUtils {
 	);
 
 	public static BlockPhysicsData getPhysics(ServerLevel world, BlockPos pos, BlockState state) {
-		return BlockStatePhysicsHolder.get(state, world, false);
+		return BlockStatePhysicsHolder.get(state, world, isNatural(world, pos));
+	}
+
+	public static void onBlockSet(ServerLevel world, LevelChunk chunk, BlockPos pos, BlockState oldState, BlockState newState, int flags) {
+		if (oldState == newState) return;
+		boolean natural = (flags & Block.UPDATE_KNOWN_SHAPE) != 0;
+		BPChunkSection section;
+		if (natural) {
+			section = getSection(world, pos, chunk);
+		} else {
+			section = getOrCreateSection(world, pos, chunk);
+			if (oldState == null || oldState.getBlock() != newState.getBlock() || oldState.getFluidState() == newState.getFluidState()) {
+				BlockPhysicsManager.get(world).blockUpdated(pos);
+			}
+		}
+		if (section != null) {
+			section.setNatural(pos.getX(), pos.getY(), pos.getZ(), natural);
+		}
+	}
+
+	public static boolean isNatural(ServerLevel world, BlockPos pos) {
+		BPChunkSection section = getSection(world, pos);
+		if (section == null) return true;
+		return section.isNatural(pos.getX(), pos.getY(), pos.getZ());
+	}
+
+	public static void setNatural(ServerLevel world, BlockPos pos, boolean natural) {
+		BPChunkSection section = getOrCreateSection(world, pos);
+		section.setNatural(pos.getX(), pos.getY(), pos.getZ(), natural);
+	}
+
+	public static StablePath getStablePath(ServerLevel world, BlockPos pos) {
+		BPChunkSection section = getSection(world, pos);
+		if (section == null) return null;
+		return section.getStablePath();
+	}
+
+	public static StablePath getOrCreateStablePath(ServerLevel world, BlockPos pos) {
+		BPChunkSection section = getOrCreateSection(world, pos);
+		return section.getOrInitStablePath();
+	}
+
+	public static BPChunkSection getSection(ServerLevel world, BlockPos pos) {
+		return getSection(world, pos, world.getChunkAt(pos));
+	}
+
+	public static BPChunkSection getSection(ServerLevel world, BlockPos pos, LevelChunk chunk) {
+		BPChunkAttachment attachment = PXChunkAttachments.getInstance().getBP(chunk);
+		if (attachment == null) return null;
+		return attachment.getSections()[world.getSectionIndex(pos.getY())];
+	}
+
+	public static BPChunkSection getOrCreateSection(ServerLevel world, BlockPos pos) {
+		return getOrCreateSection(world, pos, world.getChunkAt(pos));
+	}
+
+	public static BPChunkSection getOrCreateSection(ServerLevel world, BlockPos pos, LevelChunk chunk) {
+		BPChunkAttachment attachment = PXChunkAttachments.getInstance().getOrCreateBP(chunk);
+		var sections = attachment.getSections();
+		int index = world.getSectionIndex(pos.getY());
+		BPChunkSection section = sections[index];
+		if (section == null) {
+			section = new BPChunkSection(index);
+			sections[index] = section;
+		}
+		return section;
 	}
 
 	public static boolean checkDirection(int mask, Direction dir) {

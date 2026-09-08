@@ -17,12 +17,9 @@ public enum StablePathValue {
 	public final Direction direction;
 
 	public static final int BITS = 3;
+	public static final int MAX_DISTANCE = 1 << (8 - BITS);
 	public static final int MASK = ~(-1 << BITS);
 	private static final StablePathValue[] values = values();
-
-	public static StablePathValue byId(int id) {
-		return values[id];
-	}
 
 	public static StablePathValue byMask(int mask) {
 		return values[mask & MASK];

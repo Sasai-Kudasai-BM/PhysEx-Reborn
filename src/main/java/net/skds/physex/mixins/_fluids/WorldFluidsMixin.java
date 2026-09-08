@@ -1,5 +1,6 @@
 package net.skds.physex.mixins._fluids;
 
+import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
@@ -12,36 +13,34 @@ import net.skds.physex.fluids.PhysExFluidGameRules;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 @Mixin(Level.class)
 public abstract class WorldFluidsMixin {
 
 	@Shadow
-	public abstract FluidState getFluidState(BlockPos blockPos);
-
-	@Shadow
 	public abstract boolean isClientSide();
 
 	@SuppressWarnings("DataFlowIssue")
-	@Redirect(method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;II)Z",
-			at = @At(value = "INVOKE",
-					target = "Lnet/minecraft/world/level/chunk/LevelChunk;setBlockState(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Lnet/minecraft/world/level/block/state/BlockState;"
-			))
-	public BlockState setBlock(LevelChunk chunk,
-	                           BlockPos blockPos,
-	                           BlockState blockState,
-	                           int flags
+	@ModifyVariable(method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;II)Z",
+			at = @At(value = "STORE"),
+			ordinal = 1
+	)
+	public BlockState setBlock(BlockState oldState,
+	                           @Local(ordinal = 0) LevelChunk chunk,
+	                           @Local(argsOnly = true) BlockPos blockPos,
+	                           @Local(argsOnly = true) BlockState newState,
+	                           @Local(argsOnly = true, ordinal = 0) int flags
 	) {
 		FluidState fs = null;
 		boolean check = false;
 		if (!isClientSide()) {
-			if (FluidUtils.checkFlagsForDisplace(flags)) {
+			if (oldState != null && FluidUtils.checkFlagsForDisplace(flags)) {
 				ServerLevel world = (ServerLevel) (Object) this;
 				int limit = world.getGameRules().get(PhysExFluidGameRules.FLUID_DISPLACEMENT_LIMIT);
 				if (limit > 0) {
-					fs = getFluidState(blockPos);
-					if (!fs.isEmpty() && fs != blockState.getFluidState()) {
+					fs = FluidUtils.getFsOrVanilla(blockPos, chunk, oldState);
+					if (!fs.isEmpty() && fs != newState.getFluidState()) {
 						check = true;
 					}
 				}
@@ -49,13 +48,11 @@ public abstract class WorldFluidsMixin {
 			if ((flags & Block.UPDATE_NEIGHBORS) != 0) {
 				FluidUtils.scheduleExtraUpdates((Level) (Object) this, blockPos);
 			}
-		}
-		BlockState oldState = chunk.setBlockState(blockPos, blockState, flags);
-		//noinspection ConstantValue
-		if (check) {
-			FluidUtils.displaceHook((ServerLevel) (Object) this, blockPos, oldState, blockState, blockState.getFluidState(), fs, flags);
+			//noinspection ConstantValue
+			if (check) {
+				FluidUtils.displaceHook((ServerLevel) (Object) this, blockPos, oldState, newState, newState.getFluidState(), fs, flags);
+			}
 		}
 		return oldState;
 	}
-
 }
