@@ -12,12 +12,6 @@ import net.skds.physex.utils.PXChunkAttachments;
 @SuppressWarnings("UnstableApiUsage")
 public final class PXFabricChunkAttachments extends PXChunkAttachments {
 
-	public PXFabricChunkAttachments() {
-		if (PhysExBootConfig.INSTANCE.isBlockPhysicsEnabled()) {
-			AttachmentRegistryImpl.register(BPFabric.CHUNK_ATTACHMENT_TYPE.identifier(), BPFabric.CHUNK_ATTACHMENT_TYPE);
-		}
-	}
-
 	@Override
 	public BPChunkAttachment getBP(ChunkAccess chunk) {
 		BPChunkAttachment attachment = chunk.getAttached(BPFabric.CHUNK_ATTACHMENT_TYPE);
@@ -46,6 +40,13 @@ public final class PXFabricChunkAttachments extends PXChunkAttachments {
 	@Override
 	public void set(LevelChunk chunk, BPChunkAttachment attachment) {
 		chunk.setAttached(BPFabric.CHUNK_ATTACHMENT_TYPE, attachment);
+	}
+
+	@Override
+	public void init() {
+		if (PhysExBootConfig.INSTANCE.isBlockPhysicsEnabled()) {
+			AttachmentRegistryImpl.register(BPFabric.CHUNK_ATTACHMENT_TYPE.identifier(), BPFabric.CHUNK_ATTACHMENT_TYPE);
+		}
 	}
 
 }

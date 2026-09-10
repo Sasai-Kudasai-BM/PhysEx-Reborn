@@ -100,15 +100,28 @@ public final class BlockPhysicsChain {
 		if (!physicsData.isNormal()) {
 			return false;
 		}
+		StablePath stablePath = manager.getStablePath(cursor1);
+		if (stablePath != null) {
+			if (stablePath.get(cursor1) != StablePathValue.EMPTY) {
+				if (DEBUG) {
+					BlockPhysicsDebug.debug(cursor1, Blocks.BEDROCK.defaultBlockState());
+				}
+				return false;
+			}
+		}
+		int i = 0;
 		while (true) {
 			manager.taskSet.remove(startPos);
 			cursor2.setWithOffset(cursor1, 0, -1, 0);
 			BlockState state2 = getBlockState(cursor2);
 			BlockPhysicsData physicsData2 = getPhysics(cursor2, state2);
 			if (canCarry(state, cursor1, physicsData, state2, cursor2, physicsData2, Direction.DOWN, 0, 0)) {
-				if (physicsData2.isImmovable() || physicsData2.vanillaPhysics()) {
+				if (isImmovable(physicsData, physicsData2, Direction.DOWN, cursor2.asLong(), 0, false)) {
 					if (DEBUG) {
 						BlockPhysicsDebug.debug(cursor1, Blocks.BEDROCK.defaultBlockState());
+					}
+					for (int j = i; j > 0; j--) {
+						addStablePath(cursor2.move(0, 1, 0).asLong(), Direction.DOWN, 0);
 					}
 					return false;
 				}
@@ -119,6 +132,7 @@ public final class BlockPhysicsChain {
 				startPos = cursor1.asLong();
 				break;
 			}
+			i++;
 		}
 
 		this.startPos = startPos;
@@ -166,7 +180,7 @@ public final class BlockPhysicsChain {
 		int dist;
 		int mask;
 		int flags;
-		int i = 15_000;
+		int i = 100_000;
 		Stack stk;
 		while ((stk = nextStack()) != null) {
 			if (--i <= 0) {
@@ -276,9 +290,10 @@ public final class BlockPhysicsChain {
 							dist2 = dist + 1;
 						}
 						if (dist2 > StablePathValue.MAX_DISTANCE) continue;
+						addStablePath(pl, opposite, dist2);
+
 						nodeSet.remove(pl);
 						unwindQueue.add(pl);
-						addStablePath(pl, opposite, dist2);
 						unwindDistance.add((byte) dist2);
 						if (opposite == Direction.DOWN) {
 							//if (DEBUG) {
@@ -291,6 +306,26 @@ public final class BlockPhysicsChain {
 				}
 			}
 		} while (!unwindQueue.isEmpty());
+	}
+
+	private boolean isImmovable(BlockPhysicsData physics, BlockPhysicsData targetPhysics, Direction dir, long targetPos, int distance, boolean unwind) {
+		if (targetPhysics.isImmovable() || targetPhysics.vanillaPhysics()) {
+			if (unwind) unwind(targetPos, 0);
+			return true;
+		}
+		StablePath stablePath = manager.getStablePath(cursor2);
+		if (stablePath != null) {
+			StablePathValue spv = stablePath.get(cursor2);
+			if (spv != StablePathValue.EMPTY && spv.direction != dir.getOpposite()) {
+				int std = stablePath.getDistance(cursor2);
+				int d = std + distance;
+				if (!dir.getAxis().isHorizontal() || physics.beam() > d && targetPhysics.beam() > d) {
+					if (unwind) unwind(targetPos, std);
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private boolean tryCarry(long p1l,
@@ -317,21 +352,8 @@ public final class BlockPhysicsChain {
 		}
 		if (canCarry(state, cursor1, physicsData, state2, cursor2, physicsData2, direction, nextDist, flags)) {
 			stablePathCandidate(p1l, direction, distGrow);
-			if (physicsData2.isImmovable() || physicsData2.vanillaPhysics()) {
-				unwind(p2l, 0);
+			if (isImmovable(physicsData, physicsData2, direction, p2l, distance, true)) {
 				return true;
-			}
-			StablePath stablePath = manager.getStablePath(cursor2);
-			if (stablePath != null) {
-				StablePathValue spv = stablePath.get(cursor2);
-				if (spv != StablePathValue.EMPTY) {
-					int std = stablePath.getDistance(cursor2);
-					int d = std + distance;
-					if (physicsData.beam() > d && physicsData2.beam() > d) {
-						unwind(p2l, std);
-						return true;
-					}
-				}
 			}
 			if (!down) {
 				pushNode(p2l, removeDirection(physicsData2.getDirMask(), direction.getOpposite()), nextDist, flags);

@@ -9,6 +9,7 @@ import net.skds.physex.fluids.PhysExFluidGameRules;
 import net.skds.physex.fluids.PhysExFluidItems;
 import net.skds.physex.fluids.VanillaFluidTweaks;
 import net.skds.physex.fluids.layer.FluidLayer;
+import net.skds.physex.utils.PXChunkAttachments;
 
 import java.nio.file.Path;
 
@@ -45,6 +46,7 @@ public class PhysEx implements ModInitializer {
 				BlockPhysicsDebugItem.reg();
 			}
 		}
+		PXChunkAttachments.getInstance().init();
 	}
 
 	public static boolean fluidItemsEnabled() {

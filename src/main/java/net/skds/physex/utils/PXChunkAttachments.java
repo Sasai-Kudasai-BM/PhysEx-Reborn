@@ -32,5 +32,5 @@ public abstract class PXChunkAttachments {
 
 	public abstract void set(LevelChunk chunk, BPChunkAttachment attachment);
 
-
+	public abstract void init();
 }

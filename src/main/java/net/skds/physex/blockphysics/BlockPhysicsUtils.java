@@ -75,6 +75,7 @@ public class BlockPhysicsUtils {
 		}
 		if (section != null) {
 			section.setNatural(pos.getX(), pos.getY(), pos.getZ(), natural);
+			BlockPhysicsManager.get(world).popStable(pos);
 		}
 	}
 

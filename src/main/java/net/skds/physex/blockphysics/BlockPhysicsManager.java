@@ -19,6 +19,7 @@ public class BlockPhysicsManager {
 	private final LongArrayFIFOQueue taskQueue = new LongArrayFIFOQueue(256);
 	private final BlockPhysicsChain chain;
 	private final BlockPos.MutableBlockPos cursor1 = new BlockPos.MutableBlockPos();
+	//private final BlockPos.MutableBlockPos cursor2 = new BlockPos.MutableBlockPos();
 	private final LongArrayList stablePopQueue = new LongArrayList(256);
 
 	private long lastStablePathPos = -1;
@@ -35,8 +36,18 @@ public class BlockPhysicsManager {
 
 	public void markStable(long pos, Direction dir, int distance) {
 		long secP = SectionPos.blockToSection(pos);
-		StablePath sp;
 		cursor1.set(pos);
+
+		taskSet.remove(pos);
+
+		//StablePath sp2 = BlockPhysicsUtils.getStablePath(world, cursor2.setWithOffset(cursor1, dir));
+		//if (sp2 != null && sp2.get(cursor2).direction == dir.getOpposite()) {
+		//	//popStable(cursor2);
+		//	System.out.println(cursor1 + " " + dir + " " + distance);
+		//	//return;
+		//}
+
+		StablePath sp;
 		if (secP == this.lastStablePathPos && this.lastStablePath != null) {
 			sp = this.lastStablePath;
 		} else {
@@ -93,7 +104,6 @@ public class BlockPhysicsManager {
 	}
 
 	public void blockUpdated(BlockPos pos) {
-		popStable(pos);
 		scheduleBlockCheck(pos);
 		for (Direction dir : BlockPhysicsUtils.DIRECTIONS) {
 			scheduleBlockCheck(cursor1.setWithOffset(pos, dir));
