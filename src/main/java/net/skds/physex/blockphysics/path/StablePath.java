@@ -1,16 +1,20 @@
 package net.skds.physex.blockphysics.path;
 
-import net.minecraft.core.SectionPos;
+import net.minecraft.core.BlockPos;
 
 import static net.skds.physex.blockphysics.BlockPhysicsUtils.sectionIndex;
 
 public final class StablePath {
 
-	private SectionPos pos;
 	private final byte[] data;
 
 	public StablePath(byte[] data) {
 		this.data = data;
+	}
+
+	public StablePathValue get(BlockPos pos) {
+		int value = data[sectionIndex(pos.getX(), pos.getY(), pos.getZ())];
+		return StablePathValue.byMask(value);
 	}
 
 	public StablePathValue get(int x, int y, int z) {
@@ -18,18 +22,27 @@ public final class StablePath {
 		return StablePathValue.byMask(value);
 	}
 
+	public int getDistance(BlockPos pos) {
+		byte value = data[sectionIndex(pos.getX(), pos.getY(), pos.getZ())];
+		return value >>> StablePathValue.BITS;
+	}
+
 	public int getDistance(int x, int y, int z) {
 		byte value = data[sectionIndex(x, y, z)];
 		return value >>> StablePathValue.BITS;
 	}
 
-	public void set(int x, int y, int z, StablePathValue direction, int distance) {
-		int value = (direction.ordinal() | (distance << StablePathValue.BITS)) & 0xFF;
-		data[sectionIndex(x, y, z)] = (byte) value;
+	public boolean set(int x, int y, int z, StablePathValue direction, int distance) {
+		byte value = (byte) ((direction.ordinal() | (distance << StablePathValue.BITS)) & 0xFF);
+		int index = sectionIndex(x, y, z);
+		if (data[index] != value) {
+			data[index] = value;
+			return true;
+		}
+		return false;
 	}
 
-	public void remove(int x, int y, int z, StablePathValue direction, int distance) {
-		int value = (direction.ordinal() | (distance << StablePathValue.BITS)) & 0xFF;
-		data[sectionIndex(x, y, z)] = (byte) value;
+	public void remove(int x, int y, int z) {
+		data[sectionIndex(x, y, z)] = (byte) 0;
 	}
 }

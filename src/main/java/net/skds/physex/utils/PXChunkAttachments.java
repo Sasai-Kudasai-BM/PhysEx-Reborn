@@ -28,7 +28,7 @@ public abstract class PXChunkAttachments {
 
 	public abstract BPChunkAttachment getOrCreateBP(ChunkAccess chunk);
 
-	public abstract void updateBP(ChunkAccess chunk);
+	public abstract void markBPDirty(ChunkAccess chunk);
 
 	public abstract void set(LevelChunk chunk, BPChunkAttachment attachment);
 

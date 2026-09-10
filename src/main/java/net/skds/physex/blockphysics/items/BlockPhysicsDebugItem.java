@@ -19,6 +19,8 @@ import net.skds.physex.PhysEx;
 import net.skds.physex.blockphysics.BlockPhysicsManager;
 import net.skds.physex.blockphysics.BlockPhysicsUtils;
 import net.skds.physex.blockphysics.BlockStatePhysicsHolder;
+import net.skds.physex.blockphysics.path.StablePath;
+import net.skds.physex.blockphysics.path.StablePathValue;
 
 public class BlockPhysicsDebugItem extends Item {
 
@@ -29,11 +31,18 @@ public class BlockPhysicsDebugItem extends Item {
 	@Override
 	public InteractionResult useOn(UseOnContext useOnContext) {
 		if (!useOnContext.getLevel().isClientSide() && useOnContext.getPlayer() != null) {
-			BlockPos blockPos = useOnContext.getClickedPos();
-			BlockStatePhysicsHolder physicsData = BlockStatePhysicsHolder.get(useOnContext.getLevel().getBlockState(blockPos));
+			ServerLevel w = (ServerLevel) useOnContext.getLevel();
+			BlockPos pos = useOnContext.getClickedPos();
+			BlockStatePhysicsHolder physicsData = BlockStatePhysicsHolder.get(w.getBlockState(pos));
+			StablePath stp = BlockPhysicsUtils.getStablePath(w, pos);
+			StablePathValue stv = stp == null ? StablePathValue.EMPTY : stp.get(pos.getX(), pos.getY(), pos.getZ());
+			String stpStr = stv == StablePathValue.EMPTY ? "---" :
+					(stv.toString() + ": " + stp.getDistance(pos.getX(), pos.getY(), pos.getZ()));
 			useOnContext.getPlayer().displayClientMessage(
 					Component.literal(physicsData.toStringFormatted())
-							.append(natural(BlockPhysicsUtils.isNatural((ServerLevel) useOnContext.getLevel(), blockPos))),
+							.append(natural(BlockPhysicsUtils.isNatural(w, pos)))
+							.append("\n")
+							.append(stpStr),
 					false
 			);
 		}

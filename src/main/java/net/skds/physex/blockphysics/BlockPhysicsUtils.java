@@ -84,10 +84,10 @@ public class BlockPhysicsUtils {
 		return section.isNatural(pos.getX(), pos.getY(), pos.getZ());
 	}
 
-	public static void setNatural(ServerLevel world, BlockPos pos, boolean natural) {
-		BPChunkSection section = getOrCreateSection(world, pos);
-		section.setNatural(pos.getX(), pos.getY(), pos.getZ(), natural);
-	}
+	//public static void setNatural(ServerLevel world, BlockPos pos, boolean natural) {
+	//	BPChunkSection section = getOrCreateSection(world, pos);
+	//	section.setNatural(pos.getX(), pos.getY(), pos.getZ(), natural);
+	//}
 
 	public static StablePath getStablePath(ServerLevel world, BlockPos pos) {
 		BPChunkSection section = getSection(world, pos);
@@ -112,6 +112,14 @@ public class BlockPhysicsUtils {
 
 	public static BPChunkSection getOrCreateSection(ServerLevel world, BlockPos pos) {
 		return getOrCreateSection(world, pos, world.getChunkAt(pos));
+	}
+
+	//public static void markSectionDirty(LevelChunk chunk) {
+	//	PXChunkAttachments.getInstance().markBPDirty(chunk);
+	//}
+
+	public static void markSectionDirty(ServerLevel world, BlockPos pos) {
+		PXChunkAttachments.getInstance().markBPDirty(world.getChunk(pos));
 	}
 
 	public static BPChunkSection getOrCreateSection(ServerLevel world, BlockPos pos, LevelChunk chunk) {

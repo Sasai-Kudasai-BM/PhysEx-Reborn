@@ -1,6 +1,7 @@
 package net.skds.physex.fabric;
 
 import net.fabricmc.fabric.impl.attachment.AttachmentRegistryImpl;
+import net.fabricmc.fabric.impl.attachment.AttachmentTargetImpl;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.skds.physex.PhysExBootConfig;
@@ -38,11 +39,8 @@ public final class PXFabricChunkAttachments extends PXChunkAttachments {
 	}
 
 	@Override
-	public void updateBP(ChunkAccess chunk) {
-		BPChunkAttachment old = chunk.setAttached(BPFabric.CHUNK_ATTACHMENT_TYPE, null);
-		if (old != null) {
-			chunk.setAttached(BPFabric.CHUNK_ATTACHMENT_TYPE, old);
-		}
+	public void markBPDirty(ChunkAccess chunk) {
+		((AttachmentTargetImpl) chunk).fabric_markChanged(BPFabric.CHUNK_ATTACHMENT_TYPE);
 	}
 
 	@Override
