@@ -18,6 +18,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.skds.lib2.mat.FastMath;
 import net.skds.lib2.utils.collection.Deduplicator;
 import net.skds.lib2.utils.collection.HashDeduplicator;
 import net.skds.physex.PhysEx;
@@ -36,6 +37,11 @@ public class BlockPhysicsUtils {
 	public static final BlockState AIR = Blocks.AIR.defaultBlockState();
 	public static final Direction[] DIR_HORIZONTAL = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
 	public static final Direction[] DIRECTIONS = Direction.values();
+
+	private static final double EPSILON = 1E-10;
+	private static final Direction[] DIRECTIONS_X = {Direction.EAST, null, Direction.WEST};
+	private static final Direction[] DIRECTIONS_Y = {Direction.UP, null, Direction.DOWN};
+	private static final Direction[] DIRECTIONS_Z = {Direction.SOUTH, null, Direction.NORTH};
 
 	public static final int DIR_UP_MASK = 1 << Direction.UP.ordinal();
 	public static final int DIR_DOWN_MASK = 1 << Direction.DOWN.ordinal();
@@ -274,6 +280,199 @@ public class BlockPhysicsUtils {
 			return BlockPhysicsData.calcVanilla(compressionStrength, tensileStrength, density, 1);
 		}
 		return BlockPhysicsData.calc(config, compressionStrength, tensileStrength, density, 1);
+	}
+
+	public interface WorldCollisionChecker {
+		boolean isSolid(int x, int y, int z);
+	}
+
+	public record CollisionResult(double tHit, Direction normal) {
+
+	}
+
+	public static CollisionResult traverseAABB(
+			double startX, double startY, double startZ,
+			double dx, double dy, double dz,
+			double halfSize, WorldCollisionChecker world) {
+
+		boolean xSmall = Math.abs(dx) < EPSILON;
+		boolean ySmall = Math.abs(dy) < EPSILON;
+		boolean zSmall = Math.abs(dz) < EPSILON;
+
+		if (xSmall && ySmall && zSmall) {
+			return null;
+		}
+
+		int signX = FastMath.sign(dx);
+		int signY = FastMath.sign(dy);
+		int signZ = FastMath.sign(dz);
+
+		int voxelX = FastMath.floor(startX);
+		int voxelY = FastMath.floor(startY);
+		int voxelZ = FastMath.floor(startZ);
+
+		double invDx = 1.0 / dx;
+		double invDy = 1.0 / dy;
+		double invDz = 1.0 / dz;
+
+		double stepX = Math.abs(invDx);
+		double stepY = Math.abs(invDy);
+		double stepZ = Math.abs(invDz);
+
+		double offsetX = (signX + 1) >>> 1;
+		double offsetY = (signY + 1) >>> 1;
+		double offsetZ = (signZ + 1) >>> 1;
+
+		double wayX = ((voxelX + offsetX) - startX) * invDx;
+		double wayY = ((voxelY + offsetY) - startY) * invDy;
+		double wayZ = ((voxelZ + offsetZ) - startZ) * invDz;
+
+		wayX = xSmall ? Double.MAX_VALUE : wayX;
+		wayY = ySmall ? Double.MAX_VALUE : wayY;
+		wayZ = zSmall ? Double.MAX_VALUE : wayZ;
+
+		stepX = xSmall ? Double.MAX_VALUE : stepX;
+		stepY = ySmall ? Double.MAX_VALUE : stepY;
+		stepZ = zSmall ? Double.MAX_VALUE : stepZ;
+
+		double tHit = 0.0;
+
+		final double offsetMin = -halfSize + EPSILON;
+		final double offsetMax = halfSize - EPSILON;
+
+		int lastMinX = Integer.MAX_VALUE, lastMaxX = Integer.MIN_VALUE;
+		int lastMinY = Integer.MAX_VALUE, lastMaxY = Integer.MIN_VALUE;
+		int lastMinZ = Integer.MAX_VALUE, lastMaxZ = Integer.MIN_VALUE;
+		boolean hasLastStep = false;
+
+		while (true) {
+			double currentCenterX = startX + dx * tHit;
+			double currentCenterY = startY + dy * tHit;
+			double currentCenterZ = startZ + dz * tHit;
+
+			int minX = FastMath.floor(currentCenterX + offsetMin);
+			int maxX = FastMath.floor(currentCenterX + offsetMax);
+			int minY = FastMath.floor(currentCenterY + offsetMin);
+			int maxY = FastMath.floor(currentCenterY + offsetMax);
+			int minZ = FastMath.floor(currentCenterZ + offsetMin);
+			int maxZ = FastMath.floor(currentCenterZ + offsetMax);
+
+			CollisionResult closestCollision = null;
+
+			for (int x = minX; x <= maxX; x++) {
+				boolean inLastX = hasLastStep && (x >= lastMinX && x <= lastMaxX);
+				for (int y = minY; y <= maxY; y++) {
+					boolean inLastY = inLastX && (y >= lastMinY && y <= lastMaxY);
+					for (int z = minZ; z <= maxZ; z++) {
+						if (inLastY && (z >= lastMinZ && z <= lastMaxZ)) {
+							continue;
+						}
+						if (world.isSolid(x, y, z)) {
+							CollisionResult result = sweptAABB(startX, startY, startZ, dx, dy, dz, halfSize, x, y, z);
+							if (result != null) {
+								if (closestCollision == null || result.tHit() < closestCollision.tHit()) {
+									closestCollision = result;
+								}
+							}
+						}
+					}
+				}
+			}
+			if (closestCollision != null) {
+				return closestCollision;
+			}
+			lastMinX = minX;
+			lastMaxX = maxX;
+			lastMinY = minY;
+			lastMaxY = maxY;
+			lastMinZ = minZ;
+			lastMaxZ = maxZ;
+			hasLastStep = true;
+
+			if (tHit >= 1.0) {
+				break;
+			}
+			if (wayX < wayY) {
+				if (wayX < wayZ) {
+					tHit = wayX;
+					wayX += stepX;
+					voxelX += signX;
+				} else {
+					tHit = wayZ;
+					wayZ += stepZ;
+					voxelZ += signZ;
+				}
+			} else {
+				if (wayY < wayZ) {
+					tHit = wayY;
+					wayY += stepY;
+					voxelY += signY;
+				} else {
+					tHit = wayZ;
+					wayZ += stepZ;
+					voxelZ += signZ;
+				}
+			}
+		}
+		return null;
+	}
+
+	private static CollisionResult sweptAABB(
+			double startX, double startY, double startZ,
+			double dx, double dy, double dz, double halfSize,
+			int voxelX, int voxelY, int voxelZ) {
+		double boxMaxX = voxelX + 1.0;
+		double boxMaxY = voxelY + 1.0;
+		double boxMaxZ = voxelZ + 1.0;
+		double movingMinX = startX - halfSize;
+		double movingMaxX = startX + halfSize;
+		double movingMinY = startY - halfSize;
+		double movingMaxY = startY + halfSize;
+		double movingMinZ = startZ - halfSize;
+		double movingMaxZ = startZ + halfSize;
+		double xInvEntry, yInvEntry, zInvEntry;
+		double xInvExit, yInvExit, zInvExit;
+		if (dx > 0) {
+			xInvEntry = (double) voxelX - movingMaxX;
+			xInvExit = boxMaxX - movingMinX;
+		} else {
+			xInvEntry = boxMaxX - movingMinX;
+			xInvExit = (double) voxelX - movingMaxX;
+		}
+		if (dy > 0) {
+			yInvEntry = (double) voxelY - movingMaxY;
+			yInvExit = boxMaxY - movingMinY;
+		} else {
+			yInvEntry = boxMaxY - movingMinY;
+			yInvExit = (double) voxelY - movingMaxY;
+		}
+		if (dz > 0) {
+			zInvEntry = (double) voxelZ - movingMaxZ;
+			zInvExit = boxMaxZ - movingMinZ;
+		} else {
+			zInvEntry = boxMaxZ - movingMinZ;
+			zInvExit = (double) voxelZ - movingMaxZ;
+		}
+		double xEntry = (Math.abs(dx) < EPSILON) ? Double.NEGATIVE_INFINITY : xInvEntry / dx;
+		double xExit = (Math.abs(dx) < EPSILON) ? Double.POSITIVE_INFINITY : xInvExit / dx;
+		double yEntry = (Math.abs(dy) < EPSILON) ? Double.NEGATIVE_INFINITY : yInvEntry / dy;
+		double yExit = (Math.abs(dy) < EPSILON) ? Double.POSITIVE_INFINITY : yInvExit / dy;
+		double zEntry = (Math.abs(dz) < EPSILON) ? Double.NEGATIVE_INFINITY : zInvEntry / dz;
+		double zExit = (Math.abs(dz) < EPSILON) ? Double.POSITIVE_INFINITY : zInvExit / dz;
+		double entryTime = Math.max(xEntry, Math.max(yEntry, zEntry));
+		double exitTime = Math.min(xExit, Math.min(yExit, zExit));
+		if (entryTime > exitTime || entryTime < 0.0 || entryTime > 1.0) {
+			return null;
+		}
+		Direction normal;
+		if (entryTime == xEntry) {
+			normal = DIRECTIONS_X[FastMath.sign(dx) + 1];
+		} else if (entryTime == yEntry) {
+			normal = DIRECTIONS_Y[FastMath.sign(dy) + 1];
+		} else {
+			normal = DIRECTIONS_Z[FastMath.sign(dz) + 1];
+		}
+		return new CollisionResult(entryTime, normal);
 	}
 
 	public static void reload(MinecraftServer server) {

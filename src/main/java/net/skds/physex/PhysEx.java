@@ -4,7 +4,8 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.skds.lib2.utils.logger.SKDSLogger;
 import net.skds.physex.blockphysics.BlockPhysicsUtils;
-import net.skds.physex.blockphysics.items.BlockPhysicsDebugItem;
+import net.skds.physex.blockphysics.entity.BPFallingBlock;
+import net.skds.physex.blockphysics.item.BlockPhysicsDebugItem;
 import net.skds.physex.fluids.PhysExFluidGameRules;
 import net.skds.physex.fluids.PhysExFluidItems;
 import net.skds.physex.fluids.VanillaFluidTweaks;
@@ -36,13 +37,14 @@ public class PhysEx implements ModInitializer {
 			PhysExFluidItems.init();
 		}
 		if (PhysExBootConfig.INSTANCE.isBlockPhysicsEnabled()) {
+			BPFallingBlock.init();
 			ServerLifecycleEvents.SERVER_STARTED.register((BlockPhysicsUtils::reload));
 			ServerLifecycleEvents.END_DATA_PACK_RELOAD.register(((server, resourceManager, success) -> {
 				if (success) {
 					BlockPhysicsUtils.reload(server);
 				}
 			}));
-			if (DEBUG && !PhysExBootConfig.INSTANCE.isServerOnly()) {
+			if (DEBUG) {
 				BlockPhysicsDebugItem.reg();
 			}
 		}
@@ -50,6 +52,6 @@ public class PhysEx implements ModInitializer {
 	}
 
 	public static boolean fluidItemsEnabled() {
-		return PhysExBootConfig.INSTANCE.isFluidPhysicsEnabled() && !PhysExBootConfig.INSTANCE.isServerOnly();
+		return PhysExBootConfig.INSTANCE.isFluidPhysicsEnabled();
 	}
 }

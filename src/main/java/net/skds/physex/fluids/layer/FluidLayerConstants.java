@@ -9,7 +9,6 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
 import net.skds.physex.PhysEx;
-import net.skds.physex.PhysExBootConfig;
 
 @UtilityClass
 public class FluidLayerConstants {
@@ -22,7 +21,7 @@ public class FluidLayerConstants {
 			FluidLayer::new,
 			CODEC,
 			STREAM_CODEC,
-			PhysExBootConfig.INSTANCE.isServerOnly() ? null : FluidLayer::checkForSync,
+			FluidLayer::checkForSync,
 			false
 	);
 }

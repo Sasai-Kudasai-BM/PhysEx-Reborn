@@ -25,7 +25,7 @@ import static net.skds.physex.blockphysics.BlockPhysicsUtils.*;
 public final class BlockPhysicsChain {
 
 	private static final boolean DEBUG = PhysEx.DEBUG && Boolean.getBoolean("physex.debug.block-chain");
-	private static final int INITIAL_SIZE = 256;
+	private static final int INITIAL_SIZE = 128;
 
 	private final BlockPos.MutableBlockPos cursor1 = new BlockPos.MutableBlockPos();
 	private final BlockPos.MutableBlockPos cursor2 = new BlockPos.MutableBlockPos();
@@ -64,7 +64,13 @@ public final class BlockPhysicsChain {
 	}
 
 	private void done(boolean success) {
-		this.fall = new BlockFallInfo(startPos, Direction.DOWN);
+		if (success) {
+			this.fall = null;
+		} else {
+			BlockPos pos = BlockPos.of(startPos);
+			BlockState state = getBlockState(pos);
+			this.fall = new BlockFallInfo(pos, getPhysics(pos, state), Direction.DOWN, state);
+		}
 		this.hold = success;
 		this.state = PhysicsChainState.DONE;
 	}
@@ -155,17 +161,24 @@ public final class BlockPhysicsChain {
 	}
 
 	public void nextTick() {
-		blockStateCache.clear();
+		this.blockStateCache.clear();
+		this.blockStateCache.trim(INITIAL_SIZE);
 		tick();
 	}
 
 	public void clear() {
 		this.visited.clear();
+		this.visited.trim(INITIAL_SIZE);
 		this.carryDirection.clear();
+		this.carryDirection.trim(INITIAL_SIZE);
 		this.unwindVisited.clear();
-		this.unwindQueue.clear();
+		this.unwindVisited.trim(INITIAL_SIZE);
 		this.blockStateCache.clear();
+		this.blockStateCache.trim(INITIAL_SIZE);
 		this.nodeSet.clear();
+		this.nodeSet.trim(INITIAL_SIZE);
+
+		this.unwindQueue.clear();
 		this.unwindDistance.clear();
 		this.stack.clear();
 		this.stackUp.clear();

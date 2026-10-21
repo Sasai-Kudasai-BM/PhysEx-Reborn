@@ -9,6 +9,7 @@ import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.skds.physex.blockphysics.entity.BPFallingBlock;
 import net.skds.physex.blockphysics.path.StablePath;
 import net.skds.physex.blockphysics.path.StablePathValue;
 
@@ -131,7 +132,9 @@ public class BlockPhysicsManager {
 	}
 
 	private void willFall(BlockFallInfo bfi) {
-		cursor1.set(bfi.pos());
-		world.setBlock(cursor1.immutable(), BlockPhysicsUtils.AIR, 3);
+		world.setBlock(bfi.pos(), BlockPhysicsUtils.AIR, 3);
+		BPFallingBlock fallingBlock = new BPFallingBlock(world, bfi.state(), bfi.pos(), bfi.physicsData());
+		fallingBlock.setDeltaMovement(0, fallingBlock.getGravity() * -2, 0);
+		world.addFreshEntity(fallingBlock);
 	}
 }

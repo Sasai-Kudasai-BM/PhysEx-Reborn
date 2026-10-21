@@ -18,7 +18,7 @@ public final class PhysExBootConfig {
 	private static final Path PATH = PhysEx.CFG_DIR.resolve("boot.jsonc");
 	public static final PhysExBootConfig INSTANCE = load();
 
-	private static final int VERSION = 1;
+	private static final int VERSION = 10;
 	private static final String COMMENT = """
 			/*
 			\t+------------------------------------------+
@@ -52,9 +52,6 @@ public final class PhysExBootConfig {
 
 	@JsonComment("Enables the blocks part (WIP)")
 	private boolean blockPhysicsEnabled = false;
-
-	@JsonComment("Makes this mod server side only")
-	private boolean serverOnly = false;
 
 	@JsonComment("!!! FOR ADVANCED USERS AND MOD MAKERS	!!! The flag that telling placed block to try to displace fluid from it (FLAG = 1 << n)")
 	private int fluidDisplaceFlagBitOffset = 23;

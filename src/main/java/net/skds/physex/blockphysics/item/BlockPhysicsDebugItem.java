@@ -1,4 +1,4 @@
-package net.skds.physex.blockphysics.items;
+package net.skds.physex.blockphysics.item;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
