@@ -9,6 +9,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.function.BooleanSupplier;
+
 @Mixin(ServerLevel.class)
 public class ServerWorldBlocksMixin implements BlockPhysicsManagerGetter {
 
@@ -17,11 +19,21 @@ public class ServerWorldBlocksMixin implements BlockPhysicsManagerGetter {
 
 	@Inject(method = "runBlockEvents", at = @At("HEAD"))
 	private void runBlockEvents(CallbackInfo ci) {
-		blockPhysicsManager.tick();
+		blockPhysicsManager.tickBlocks();
 	}
 
 	@Override
 	public BlockPhysicsManager physEx$getBlockPhysicsManager() {
 		return blockPhysicsManager;
+	}
+
+	@Inject(method = "tick",
+			at = @At(value = "INVOKE",
+					target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V",
+					shift = At.Shift.AFTER
+			)
+	)
+	public void tick(BooleanSupplier booleanSupplier, CallbackInfo ci) {
+		blockPhysicsManager.tickAfterEntities();
 	}
 }

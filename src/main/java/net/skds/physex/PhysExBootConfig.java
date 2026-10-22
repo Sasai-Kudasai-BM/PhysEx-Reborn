@@ -18,7 +18,7 @@ public final class PhysExBootConfig {
 	private static final Path PATH = PhysEx.CFG_DIR.resolve("boot.jsonc");
 	public static final PhysExBootConfig INSTANCE = load();
 
-	private static final int VERSION = 10;
+	private static final int VERSION = 11;
 	private static final String COMMENT = """
 			/*
 			\t+------------------------------------------+
@@ -39,19 +39,11 @@ public final class PhysExBootConfig {
 			""")
 	private boolean extraFluidLayerEnabled = true;
 
-	//@JsonComment("""
-	//
-	//		Describes behavior of "waterlogged" blocks (slabs, fences, trapdoors etc...)
-	//		values:
-	//			ALL_OR_NOTHING (default) - Waterlogged state sets only for fully filled blocks
-	//			FILL_AT_HALF - Waterlogged state sets only for at least half filled blocks
-	//			FILL_ALWAYS - Waterlogged state sets if any amount of water presents in block
-	//		""")
-	//private WaterlogPolicy waterlogPolicy = WaterlogPolicy.ALL_OR_NOTHING;
-
-
 	@JsonComment("Enables the blocks part (WIP)")
 	private boolean blockPhysicsEnabled = false;
+
+	@JsonComment("A velocity limit for falling blocks")
+	private double blockPhysicsRelativisticSpeed = 16;
 
 	@JsonComment("!!! FOR ADVANCED USERS AND MOD MAKERS	!!! The flag that telling placed block to try to displace fluid from it (FLAG = 1 << n)")
 	private int fluidDisplaceFlagBitOffset = 23;
@@ -62,12 +54,6 @@ public final class PhysExBootConfig {
 
 	public boolean isExtraFluidLayerEnabled() {
 		return fluidPhysicsEnabled && extraFluidLayerEnabled;
-	}
-
-	public enum WaterlogPolicy {
-		ALL_OR_NOTHING,
-		FILL_AT_HALF,
-		FILL_ALWAYS
 	}
 
 	private static PhysExBootConfig load() {

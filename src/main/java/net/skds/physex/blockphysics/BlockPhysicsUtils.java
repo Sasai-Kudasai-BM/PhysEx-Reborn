@@ -18,12 +18,15 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.skds.lib2.mat.FastMath;
 import net.skds.lib2.utils.collection.Deduplicator;
 import net.skds.lib2.utils.collection.HashDeduplicator;
 import net.skds.physex.PhysEx;
 import net.skds.physex.blockphysics.chunk.BPChunkAttachment;
 import net.skds.physex.blockphysics.chunk.BPChunkSection;
+import net.skds.physex.blockphysics.entity.BPFallingBlock;
 import net.skds.physex.blockphysics.path.StablePath;
 import net.skds.physex.utils.PXChunkAttachments;
 
@@ -282,11 +285,28 @@ public class BlockPhysicsUtils {
 		return BlockPhysicsData.calc(config, compressionStrength, tensileStrength, density, 1);
 	}
 
+	public static AABB getBroadAABB(BPFallingBlock fallingBlock) {
+		return getBroadAABB(fallingBlock.getX(), fallingBlock.getY(), fallingBlock.getZ(), fallingBlock.getRelV());
+	}
+
+	public static AABB getBroadAABB(double x, double y, double z, Vec3 move) {
+		double minX = x - 0.5 - EPSILON;
+		double minY = y - EPSILON;
+		double minZ = z - 0.5 - EPSILON;
+		double resMinX = minX + Math.min(move.x, 0.0);
+		double resMaxX = minX + 1.0 + EPSILON * 2 + Math.max(move.x, 0.0);
+		double resMinY = minY + Math.min(move.y, 0.0);
+		double resMaxY = minY + 1.0 + EPSILON * 2 + Math.max(move.y, 0.0);
+		double resMinZ = minZ + Math.min(move.z, 0.0);
+		double resMaxZ = minZ + 1.0 + EPSILON * 2 + Math.max(move.z, 0.0);
+		return new AABB(resMinX, resMinY, resMinZ, resMaxX, resMaxY, resMaxZ);
+	}
+
 	public interface WorldCollisionChecker {
 		boolean isSolid(int x, int y, int z);
 	}
 
-	public record CollisionResult(double tHit, Direction normal) {
+	public record CollisionResult(double tHit, Direction normal, double depth) {
 
 	}
 
@@ -417,62 +437,126 @@ public class BlockPhysicsUtils {
 		return null;
 	}
 
-	private static CollisionResult sweptAABB(
-			double startX, double startY, double startZ,
-			double dx, double dy, double dz, double halfSize,
-			int voxelX, int voxelY, int voxelZ) {
-		double boxMaxX = voxelX + 1.0;
-		double boxMaxY = voxelY + 1.0;
-		double boxMaxZ = voxelZ + 1.0;
-		double movingMinX = startX - halfSize;
-		double movingMaxX = startX + halfSize;
-		double movingMinY = startY - halfSize;
-		double movingMaxY = startY + halfSize;
-		double movingMinZ = startZ - halfSize;
-		double movingMaxZ = startZ + halfSize;
-		double xInvEntry, yInvEntry, zInvEntry;
-		double xInvExit, yInvExit, zInvExit;
-		if (dx > 0) {
-			xInvEntry = (double) voxelX - movingMaxX;
-			xInvExit = boxMaxX - movingMinX;
-		} else {
-			xInvEntry = boxMaxX - movingMinX;
-			xInvExit = (double) voxelX - movingMaxX;
-		}
-		if (dy > 0) {
-			yInvEntry = (double) voxelY - movingMaxY;
-			yInvExit = boxMaxY - movingMinY;
-		} else {
-			yInvEntry = boxMaxY - movingMinY;
-			yInvExit = (double) voxelY - movingMaxY;
-		}
-		if (dz > 0) {
-			zInvEntry = (double) voxelZ - movingMaxZ;
-			zInvExit = boxMaxZ - movingMinZ;
-		} else {
-			zInvEntry = boxMaxZ - movingMinZ;
-			zInvExit = (double) voxelZ - movingMaxZ;
-		}
+	public static CollisionResult sweptAABB(AABB b1, AABB b2, double dx, double dy, double dz) {
+		double xInvEntry = dx > 0 ? b2.minX - b1.maxX : b2.maxX - b1.minX;
+		double xInvExit = dx > 0 ? b2.maxX - b1.minX : b2.minX - b1.maxX;
+		double yInvEntry = dy > 0 ? b2.minY - b1.maxY : b2.maxY - b1.minY;
+		double yInvExit = dy > 0 ? b2.maxY - b1.minY : b2.minY - b1.maxY;
+		double zInvEntry = dz > 0 ? b2.minZ - b1.maxZ : b2.maxZ - b1.minZ;
+		double zInvExit = dx > 0 ? b2.maxZ - b1.minZ : b2.minZ - b1.maxZ;
+
 		double xEntry = (Math.abs(dx) < EPSILON) ? Double.NEGATIVE_INFINITY : xInvEntry / dx;
 		double xExit = (Math.abs(dx) < EPSILON) ? Double.POSITIVE_INFINITY : xInvExit / dx;
 		double yEntry = (Math.abs(dy) < EPSILON) ? Double.NEGATIVE_INFINITY : yInvEntry / dy;
 		double yExit = (Math.abs(dy) < EPSILON) ? Double.POSITIVE_INFINITY : yInvExit / dy;
 		double zEntry = (Math.abs(dz) < EPSILON) ? Double.NEGATIVE_INFINITY : zInvEntry / dz;
 		double zExit = (Math.abs(dz) < EPSILON) ? Double.POSITIVE_INFINITY : zInvExit / dz;
+
 		double entryTime = Math.max(xEntry, Math.max(yEntry, zEntry));
 		double exitTime = Math.min(xExit, Math.min(yExit, zExit));
-		if (entryTime > exitTime || entryTime < 0.0 || entryTime > 1.0) {
+
+		if (entryTime > exitTime || exitTime < 0.0 || entryTime > 1.0) {
 			return null;
 		}
 		Direction normal;
-		if (entryTime == xEntry) {
-			normal = DIRECTIONS_X[FastMath.sign(dx) + 1];
-		} else if (entryTime == yEntry) {
-			normal = DIRECTIONS_Y[FastMath.sign(dy) + 1];
+		double depth;
+
+		if (entryTime < 0.0) {
+			double overlapX = Math.min(b1.maxX, b2.maxX) - Math.max(b1.minX, b2.minX);
+			double overlapY = Math.min(b1.maxY, b2.maxY) - Math.max(b1.minY, b2.minY);
+			double overlapZ = Math.min(b1.maxZ, b2.maxZ) - Math.max(b1.minZ, b2.minZ);
+
+			if (overlapX < overlapY && overlapX < overlapZ) {
+				depth = overlapX;
+				normal = DIRECTIONS_X[FastMath.sign(dx) + 1];
+			} else if (overlapY < overlapZ) {
+				depth = overlapY;
+				normal = DIRECTIONS_Y[FastMath.sign(dy) + 1];
+			} else {
+				depth = overlapZ;
+				normal = DIRECTIONS_Z[FastMath.sign(dz) + 1];
+			}
+			entryTime = 0.0;
 		} else {
-			normal = DIRECTIONS_Z[FastMath.sign(dz) + 1];
+			if (entryTime == xEntry) {
+				normal = DIRECTIONS_X[FastMath.sign(dx) + 1];
+			} else if (entryTime == yEntry) {
+				normal = DIRECTIONS_Y[FastMath.sign(dy) + 1];
+			} else {
+				normal = DIRECTIONS_Z[FastMath.sign(dz) + 1];
+			}
+			depth = 0.0;
 		}
-		return new CollisionResult(entryTime, normal);
+
+		return new CollisionResult(entryTime, normal, depth);
+	}
+
+
+	private static CollisionResult sweptAABB(
+			double startX, double startY, double startZ,
+			double dx, double dy, double dz, double halfSize,
+			int voxelX, int voxelY, int voxelZ) {
+
+		double boxMaxX = voxelX + 1.0;
+		double boxMaxY = voxelY + 1.0;
+		double boxMaxZ = voxelZ + 1.0;
+
+		double movingMinX = startX - halfSize;
+		double movingMaxX = startX + halfSize;
+		double movingMinY = startY - halfSize;
+		double movingMaxY = startY + halfSize;
+		double movingMinZ = startZ - halfSize;
+		double movingMaxZ = startZ + halfSize;
+
+		double xInvEntry = dx > 0 ? (double) voxelX - movingMaxX : boxMaxX - movingMinX;
+		double xInvExit = dx > 0 ? boxMaxX - movingMinX : (double) voxelX - movingMaxX;
+		double yInvEntry = dy > 0 ? (double) voxelY - movingMaxY : boxMaxY - movingMinY;
+		double yInvExit = dy > 0 ? boxMaxY - movingMinY : (double) voxelY - movingMaxY;
+		double zInvEntry = dz > 0 ? (double) voxelZ - movingMaxZ : boxMaxZ - movingMinZ;
+		double zInvExit = dz > 0 ? boxMaxZ - movingMinZ : (double) voxelZ - movingMaxZ;
+
+		double xEntry = (Math.abs(dx) < EPSILON) ? Double.NEGATIVE_INFINITY : xInvEntry / dx;
+		double xExit = (Math.abs(dx) < EPSILON) ? Double.POSITIVE_INFINITY : xInvExit / dx;
+		double yEntry = (Math.abs(dy) < EPSILON) ? Double.NEGATIVE_INFINITY : yInvEntry / dy;
+		double yExit = (Math.abs(dy) < EPSILON) ? Double.POSITIVE_INFINITY : yInvExit / dy;
+		double zEntry = (Math.abs(dz) < EPSILON) ? Double.NEGATIVE_INFINITY : zInvEntry / dz;
+		double zExit = (Math.abs(dz) < EPSILON) ? Double.POSITIVE_INFINITY : zInvExit / dz;
+
+		double entryTime = Math.max(xEntry, Math.max(yEntry, zEntry));
+		double exitTime = Math.min(xExit, Math.min(yExit, zExit));
+
+		if (entryTime > exitTime || exitTime < 0.0 || entryTime > 1.0) {
+			return null;
+		}
+		Direction normal;
+		double depth;
+
+		if (entryTime < 0.0) {
+			double overlapX = Math.min(movingMaxX, boxMaxX) - Math.max(movingMinX, voxelX);
+			double overlapY = Math.min(movingMaxY, boxMaxY) - Math.max(movingMinY, voxelY);
+			double overlapZ = Math.min(movingMaxZ, boxMaxZ) - Math.max(movingMinZ, voxelZ);
+			if (overlapX < overlapY && overlapX < overlapZ) {
+				depth = overlapX;
+				normal = DIRECTIONS_X[FastMath.sign(dx) + 1];
+			} else if (overlapY < overlapZ) {
+				depth = overlapY;
+				normal = DIRECTIONS_Y[FastMath.sign(dy) + 1];
+			} else {
+				depth = overlapZ;
+				normal = DIRECTIONS_Z[FastMath.sign(dz) + 1];
+			}
+			entryTime = 0.0;
+		} else {
+			if (entryTime == xEntry) {
+				normal = DIRECTIONS_X[FastMath.sign(dx) + 1];
+			} else if (entryTime == yEntry) {
+				normal = DIRECTIONS_Y[FastMath.sign(dy) + 1];
+			} else {
+				normal = DIRECTIONS_Z[FastMath.sign(dz) + 1];
+			}
+			depth = 0.0;
+		}
+		return new CollisionResult(entryTime, normal, depth);
 	}
 
 	public static void reload(MinecraftServer server) {

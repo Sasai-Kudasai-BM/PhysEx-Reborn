@@ -82,7 +82,7 @@ project(":skdslib") {
 	sourceSets {
 		List<String> excludes = List.of(
 				"net/skds/lib2/natives/**",
-				"net/skds/lib2/shapes/**",
+				//"net/skds/lib2/shapes/**",
 				"net/skds/lib2/shapes2d/**",
 				"net/skds/lib2/physics2d/**",
 				"net/skds/lib2/shapes2d/Demo2D.java",

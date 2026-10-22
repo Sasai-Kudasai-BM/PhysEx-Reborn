@@ -73,7 +73,6 @@ public class FluidUtils {
 	public static final int LEVELS_IN_BOTTLE = FastMath.ceil((float) FluidConstants.BOTTLE / FLUID_IN_LEVEL);
 
 	public static final boolean FLUID_CHUNK_LAYER = PhysExBootConfig.INSTANCE.isExtraFluidLayerEnabled();
-	public static final PhysExBootConfig.WaterlogPolicy WATERLOG_POLICY = PhysExBootConfig.WaterlogPolicy.ALL_OR_NOTHING;
 	//PhysExBootConfig.INSTANCE.getWaterlogPolicy();
 
 	public static final BiFunction<Level, BlockPos, FluidState> FS_GETTER = Level::getFluidState;
@@ -370,11 +369,7 @@ public class FluidUtils {
 		}
 		if (fluidState.getType().isSame(Fluids.WATER) && oldState.hasProperty(BlockStateProperties.WATERLOGGED)) {
 			int amount = fluidState.getAmount();
-			boolean fill = switch (WATERLOG_POLICY) {
-				case ALL_OR_NOTHING -> amount == MAX_LEVEL;
-				case FILL_ALWAYS -> amount > 0;
-				case FILL_AT_HALF -> amount > MAX_LEVEL / 2;
-			};
+			boolean fill = amount == MAX_LEVEL;
 			return oldState.setValue(BlockStateProperties.WATERLOGGED, fill);
 		}
 		if (override) {

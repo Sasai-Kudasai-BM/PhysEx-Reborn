@@ -9,9 +9,14 @@ import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.skds.lib2.shapes.FastAABBTree;
 import net.skds.physex.blockphysics.entity.BPFallingBlock;
 import net.skds.physex.blockphysics.path.StablePath;
 import net.skds.physex.blockphysics.path.StablePathValue;
+
+import java.util.ArrayList;
 
 public class BlockPhysicsManager {
 
@@ -20,8 +25,10 @@ public class BlockPhysicsManager {
 	private final LongArrayFIFOQueue taskQueue = new LongArrayFIFOQueue(256);
 	private final BlockPhysicsChain chain;
 	private final BlockPos.MutableBlockPos cursor1 = new BlockPos.MutableBlockPos();
-	//private final BlockPos.MutableBlockPos cursor2 = new BlockPos.MutableBlockPos();
 	private final LongArrayList stablePopQueue = new LongArrayList(256);
+
+	private final FastAABBTree<BPFallingBlock> fallingBlockTree = new FastAABBTree<>(64);
+	private final ArrayList<BPFallingBlock> fallingBlockTickQueue = new ArrayList<>(64);
 
 	private long lastStablePathPos = -1;
 	private StablePath lastStablePath;
@@ -35,19 +42,24 @@ public class BlockPhysicsManager {
 		return ((BlockPhysicsManagerGetter) world).physEx$getBlockPhysicsManager();
 	}
 
+	public int addFallingBlock(BPFallingBlock fallingBlock) {
+		AABB aabb = fallingBlock.getBroadAABB();
+		return fallingBlockTree.put(aabb.minX, aabb.minY, aabb.minZ, aabb.maxX, aabb.maxY, aabb.maxZ, fallingBlock);
+	}
+
+	public void updateFallingBlock(BPFallingBlock fallingBlock) {
+		AABB aabb = fallingBlock.getBroadAABB();
+		fallingBlockTree.move(fallingBlock.getTreeNode(), aabb.minX, aabb.minY, aabb.minZ, aabb.maxX, aabb.maxY, aabb.maxZ);
+	}
+
+	public void removeFallingBlock(int index) {
+		fallingBlockTree.remove(index);
+	}
+
 	public void markStable(long pos, Direction dir, int distance) {
 		long secP = SectionPos.blockToSection(pos);
 		cursor1.set(pos);
-
 		taskSet.remove(pos);
-
-		//StablePath sp2 = BlockPhysicsUtils.getStablePath(world, cursor2.setWithOffset(cursor1, dir));
-		//if (sp2 != null && sp2.get(cursor2).direction == dir.getOpposite()) {
-		//	//popStable(cursor2);
-		//	System.out.println(cursor1 + " " + dir + " " + distance);
-		//	//return;
-		//}
-
 		StablePath sp;
 		if (secP == this.lastStablePathPos && this.lastStablePath != null) {
 			sp = this.lastStablePath;
@@ -111,7 +123,32 @@ public class BlockPhysicsManager {
 		}
 	}
 
-	public void tick() {
+	public void tickAfterEntities() {
+		ProfilerFiller profiler = Profiler.get();
+		profiler.push("falling block tick");
+
+		fallingBlockTree.forEach((b, i) -> {
+			fallingBlockTickQueue.add(b);
+			Vec3 v1 = b.getRelV();
+			AABB broadBox = b.getBroadAABB();
+			AABB box1 = b.getBoundingBox();
+			fallingBlockTree.forEachCollision(broadBox.minX, broadBox.minY, broadBox.minZ, broadBox.maxX, broadBox.maxY, broadBox.maxZ, i,
+					(b2, i2) -> {
+						Vec3 v2 = b2.getRelV();
+						var cr = BlockPhysicsUtils.sweptAABB(b2.getBoundingBox(), box1, v2.x - v1.x, v2.y - v1.y, v2.z - v1.z);
+						if (cr != null) {
+							b.setCollision(cr, b2);
+						}
+					}
+			);
+		});
+		fallingBlockTickQueue.forEach(BPFallingBlock::postCollisionTick1);
+		fallingBlockTickQueue.forEach(BPFallingBlock::postCollisionTick2);
+		fallingBlockTickQueue.clear();
+		profiler.pop();
+	}
+
+	public void tickBlocks() {
 		ProfilerFiller profiler = Profiler.get();
 		profiler.push("block physics check");
 		if (chain.getState() == PhysicsChainState.WORKING_NEXT_TICK) {

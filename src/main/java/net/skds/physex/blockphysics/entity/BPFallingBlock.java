@@ -28,11 +28,14 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.skds.lib2.shapes.FastAABBTree;
 import net.skds.physex.PhysEx;
 import net.skds.physex.PhysExBootConfig;
 import net.skds.physex.blockphysics.BlockPhysicsData;
+import net.skds.physex.blockphysics.BlockPhysicsManager;
 import net.skds.physex.blockphysics.BlockPhysicsUtils;
 import org.jspecify.annotations.Nullable;
 
@@ -40,9 +43,9 @@ import java.util.Objects;
 
 public class BPFallingBlock extends Entity implements BlockPhysicsUtils.WorldCollisionChecker {
 
-	public static final double RELATIVISTIC_SPEED = 16;
+	public static final double RELATIVISTIC_SPEED = PhysExBootConfig.INSTANCE.getBlockPhysicsRelativisticSpeed();
 	public static final double RELATIVISTIC_SPEED_SQR = RELATIVISTIC_SPEED * RELATIVISTIC_SPEED;
-	public static final double RELATIVISTIC_SPEED_THRESHOLD = RELATIVISTIC_SPEED_SQR / 4;
+	public static final double RELATIVISTIC_SPEED_THRESHOLD = RELATIVISTIC_SPEED_SQR / 16;
 
 	public static final String TAG_BLOCK_STATE = "block_state";
 	public static final String TAG_MASS = "mass";
@@ -66,7 +69,20 @@ public class BPFallingBlock extends Entity implements BlockPhysicsUtils.WorldCol
 
 	private double mass;
 	private double effectiveMass;
+	@Getter
 	private Vec3 relV = Vec3.ZERO;
+	@Getter
+	private int treeNode = FastAABBTree.NULL;
+	@Getter
+	private AABB broadAABB;
+	@Getter
+	private Vec3 travelLimit = Vec3.ZERO;
+	@Getter
+	private BlockPhysicsUtils.CollisionResult nearestCollision;
+	private BPFallingBlock collisionEntity;
+
+	private Vec3 collisionImpulse = Vec3.ZERO;
+	//private double lastTravel = 1;
 
 	private final BlockPos.MutableBlockPos cursor1 = new BlockPos.MutableBlockPos();
 
@@ -79,6 +95,33 @@ public class BPFallingBlock extends Entity implements BlockPhysicsUtils.WorldCol
 		Objects.requireNonNull(state);
 		setBlockState(state);
 		setPos(pos.getX() + .5, pos.getY(), pos.getZ() + .5);
+	}
+
+	public void setCollision(BlockPhysicsUtils.CollisionResult collision, BPFallingBlock entity) {
+		if (this.nearestCollision == null || this.nearestCollision.tHit() > collision.tHit()) {
+			this.nearestCollision = collision;
+			this.collisionEntity = entity;
+		}
+	}
+
+	public void postCollisionTick1() {
+		if (nearestCollision != null) {
+			if (this.collisionEntity != null) {
+
+				//collideBlock(this.nearestCollision, getDeltaMovement(), relV);
+				this.collisionEntity = null;
+			} else {
+				collideBlock(this.nearestCollision, getDeltaMovement(), relV);
+			}
+			this.nearestCollision = null;
+		} else {
+			doMove(this.travelLimit);
+		}
+	}
+
+	public void postCollisionTick2() {
+		addDeltaMovement(this.collisionImpulse);
+		this.collisionImpulse = Vec3.ZERO;
 	}
 
 	@Override
@@ -110,44 +153,84 @@ public class BPFallingBlock extends Entity implements BlockPhysicsUtils.WorldCol
 			moveTick();
 			//System.out.println("=========");
 
+			BlockPhysicsManager physicsManager = BlockPhysicsManager.get((ServerLevel) level());
+			if (this.treeNode == FastAABBTree.NULL) {
+				this.treeNode = physicsManager.addFallingBlock(this);
+			} else {
+				physicsManager.updateFallingBlock(this);
+			}
+		}
+	}
+
+	@Override
+	public void onRemoval(RemovalReason removalReason) {
+		if (!level().isClientSide() && this.treeNode != FastAABBTree.NULL) {
+			BlockPhysicsManager.get((ServerLevel) level()).removeFallingBlock(this.treeNode);
+		}
+	}
+
+	@Override
+	protected void applyGravity() {
+		double d = this.getGravity();
+		if (d != 0.0) {
+			this.setDeltaMovement(this.getDeltaMovement().add(0.0, -d /* * this.lastTravel*/, 0.0));
 		}
 	}
 
 	private void moveTick() {
 		this.applyGravity();
-		Vec3 v = this.getDeltaMovement();
+		//this.lastTravel = 0;
 		Vec3 move = this.relV;
+		this.nearestCollision = null;
 		var cr = BlockPhysicsUtils.traverseAABB(getX(), getY() + .5, getZ(),
 				move.x, move.y, move.z,
 				.5,
 				this
 		);
 		if (cr == null) {
-			doMove(move);
+			//doMove(move);
+			//this.lastTravel = 1;
+			this.travelLimit = move;
 		} else {
-			// TODO indirect
-
-			if (cr.tHit() == 0 || cr.normal() == null || (cr.normal() == Direction.DOWN && v.lengthSqr() < 0.05 && v.y < 0)) {
-				discard();
-				return;
-			}
-
-			doMove(move.scale(cr.tHit()));
-			Vec3 nVec = cr.normal().getUnitVec3();
-
-			double vNorm = -nVec.dot(v);
-			double vBounce = vNorm * getBounce((float) v.lengthSqr());
-			Vec3 tan = v.subtract(nVec.scale(-vNorm));
-			double vTan = tan.length();
-			double vFriction = Math.max(0, vTan - vNorm * getFriction());
-			tan = tan.scale(vFriction);
-			Vec3 v2 = tan.add(nVec.scale(vBounce));
-			setDeltaMovement(v2);
-			if (vNorm > 0.5) {
-				SoundType sound = blockState.getSoundType();
-				level().playSound(null, this, sound.getFallSound(), SoundSource.MASTER, sound.volume * Math.min(2, (float) vNorm), sound.pitch);
-			}
+			this.nearestCollision = cr;
+			this.travelLimit = move.scale(cr.tHit());
 		}
+
+		this.broadAABB = BlockPhysicsUtils.getBroadAABB(getX(), getY(), getZ(), this.travelLimit);
+	}
+
+	private void collideBlock(BlockPhysicsUtils.CollisionResult cr, Vec3 v, Vec3 move) {
+
+		if (cr.tHit() == 0 && cr.depth() > 0) {
+			Direction norm = Objects.requireNonNullElse(cr.normal(), Direction.UP);
+			doMove(norm.getUnitVec3().scale(-cr.depth()));
+			return;
+		}
+
+		if (cr.normal() == null || (cr.normal() == Direction.UP && v.lengthSqr() < 0.05 && v.y < 0)) {
+			discard();
+			return;
+		}
+
+		Vec3 nVec = cr.normal().getUnitVec3();
+
+		double vNorm = -nVec.dot(v);
+		double vBounce = vNorm * (getBounce((float) vNorm) + 1);
+		Vec3 tan = v.add(nVec.scale(vNorm));
+		double vTan = tan.length();
+		double vNormFriction = vNorm;
+		if (cr.normal() == Direction.UP && vNorm < 0.1) {
+			vNormFriction += getGravity() * 10;
+		}
+		double dvFriction = Math.min(vTan, vNormFriction * getFriction());
+		Vec3 v2 = tan.scale(-dvFriction).add(nVec.scale(vBounce));
+		this.collisionImpulse = this.collisionImpulse.add(v2);
+		if (vNorm > 0.5) {
+			SoundType sound = blockState.getSoundType();
+			level().playSound(null, this, sound.getFallSound(), SoundSource.MASTER, sound.volume * Math.min(2, (float) vNorm), sound.pitch);
+		}
+		doMove(move.scale(cr.tHit()));
+		//this.lastTravel += (1 - this.lastTravel) * cr.tHit();
 	}
 
 	@Override
@@ -185,12 +268,12 @@ public class BPFallingBlock extends Entity implements BlockPhysicsUtils.WorldCol
 		));
 	}
 
-	private float getBounce(float vSqr) {
-		return vSqr > 0.01F ? 0.5F : 0;
+	private float getBounce(float vNorm) {
+		return vNorm > 0.01F ? 0.15F : 0;
 	}
 
 	private float getFriction() {
-		return 0.5F;
+		return 0.8F;
 	}
 
 	@Override
